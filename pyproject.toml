@@ -1,0 +1,42 @@
+[project]
+name = "chart"
+version = "0.1.0"
+description = "Clinical patient-notes search that shows its routing — a query-routing demo on hev layer (the public twin of notesearch)"
+readme = "README.md"
+# CC-BY-NC-SA-4.0: the PMC-Patients corpus is non-commercial. The demo is too.
+license = { text = "CC-BY-NC-SA-4.0" }
+requires-python = ">=3.11"
+dependencies = [
+    "hevlayer",
+    "fastembed>=0.4",        # CPU dev embeddings; swap to sentence-transformers if the
+                             # exact arctic-embed-m-v1.5 tag isn't in fastembed's catalog
+    "datasets>=3.0",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+]
+
+[project.optional-dependencies]
+search = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+]
+eval = [
+    "ir-measures>=0.3",      # MRR / nDCG@10 / Recall@1k over ReCDS qrels
+]
+# GPU-only — the Gemma clinical-event cascade (functions/classify_events.py).
+# Not installed in the CPU dev venv; runs in the Function worker image. See
+# ../moment for the vLLM + guided-decoding pattern this mirrors (RFC 0072).
+classifier = [
+    "vllm>=0.6",
+    "transformers>=4.44",
+]
+
+# Run-as-app, not build-as-package: uv only manages the dependency venv;
+# `uv run python -m indexer` finds chart_common/ on the cwd path.
+[tool.uv]
+package = false
+
+# hevlayer is not on PyPI yet (0.1, design-partner phase). Source it editable from
+# the sibling layer checkout; flip to a plain PyPI pin when it publishes.
+[tool.uv.sources]
+hevlayer = { path = "../layer/clients/python", editable = true }

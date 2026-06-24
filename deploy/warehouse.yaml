@@ -1,0 +1,33 @@
+# Warehouse — the declared upstream data source (identity + reachability).
+#
+# Declarative equivalent of the dataset pin in chart_common/config.py
+# (dataset_repo / dataset_revision / dataset_split). The Warehouse owns the
+# *where/who* (the Hub endpoint, and a token Secret for gated datasets); the
+# *what* — which dataset, split, revision — lives on the Pipeline's sourceRef.
+#
+# PMC-Patients is public + CC-BY-NC-SA, so this warehouse is credentialless
+# (tokenSecretRef omitted) — the credential-optional case (RFC 0053). NO NEW
+# WAREHOUSE KIND: this reuses the shipped `huggingface` kind verbatim.
+#
+# ── THE TRIO TWIN ──────────────────────────────────────────────────────────
+# This whole demo is the public twin of Trio's `notesearch`. Pointing the same
+# Pipeline at Trio's real Snowflake-fed clinical notes is THIS ONE BLOCK swapped
+# (RFC 0076 § Architecture); nothing downstream (chunk/embed/route/UX) changes:
+#
+#   spec:
+#     kind: snowflake
+#     snowflake:
+#       account: trio-xxxxx
+#       keyPairSecretRef: { name: trio-snowflake }   # mandatory here
+#
+apiVersion: hevlayer.com/v1alpha1
+kind: Warehouse
+metadata:
+  name: pmc-patients-hub
+  namespace: chart
+spec:
+  kind: huggingface
+  huggingface:
+    endpoint: https://huggingface.co
+    # tokenSecretRef optional for public datasets — omitted here.
+  verifyInterval: 24h

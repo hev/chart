@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>chart — clinical notes that show their routing</title>
+  <style>
+    :root { --ink:#1a2230; --muted:#67768c; --line:#e3e8ef; --kw:#0a7d4d; --fused:#9a6b00; --sem:#2156d6; }
+    body { font:15px/1.5 ui-sans-serif,system-ui,-apple-system,sans-serif; color:var(--ink); margin:0; }
+    main { max-width:860px; margin:0 auto; padding:2rem 1.25rem; }
+    h1 { font-size:1.4rem; margin:0 0 .25rem; }
+    p.lede { color:var(--muted); margin:.25rem 0 1.5rem; }
+    #box { width:100%; padding:.7rem .9rem; font-size:1rem; border:1px solid var(--line); border-radius:10px; box-sizing:border-box; }
+    .chips { display:flex; flex-wrap:wrap; gap:.4rem; margin:.75rem 0 1rem; }
+    .chip { border:1px solid var(--line); background:#fff; border-radius:999px; padding:.3rem .7rem; font-size:.85rem; cursor:pointer; }
+    .badge { display:inline-block; font-weight:600; font-size:.8rem; padding:.15rem .5rem; border-radius:6px; color:#fff; }
+    .badge.hybrid_text { background:var(--kw); } .badge.fused { background:var(--fused); } .badge.semantic { background:var(--sem); }
+    #inspector { border:1px solid var(--line); border-radius:10px; padding:.9rem; margin:1rem 0; background:#fbfcfe; display:none; }
+    #inspector .note { color:var(--muted); margin-top:.4rem; }
+    .layout { display:grid; grid-template-columns:1fr 200px; gap:1.5rem; }
+    .rail h3 { font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:.5rem 0 .25rem; }
+    .rail .prov { font-size:.7rem; color:var(--muted); }
+    .hit { padding:.75rem 0; border-top:1px solid var(--line); }
+    .hit .meta { color:var(--muted); font-size:.82rem; }
+    footer { color:var(--muted); font-size:.78rem; margin-top:2rem; border-top:1px solid var(--line); padding-top:1rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>chart</h1>
+    <p class="lede">Clinical patient-notes search that <strong>shows its routing</strong>. One box; the
+      gateway picks keyword, fused, or semantic — and tells you why. A public twin of clinical notesearch.</p>
+
+    <input id="box" placeholder="metformin 500mg   ·   elderly woman with progressive dyspnea…" />
+    <div class="chips" id="chips"></div>
+
+    <!-- The headline: the gateway's own routing decision, rendered. -->
+    <div id="inspector">
+      <span class="badge" id="badge"></span>
+      <span id="signals"></span>
+      <div class="note" id="note"></div>
+    </div>
+
+    <div class="layout">
+      <section id="results"></section>
+      <aside class="rail" id="rail"></aside>
+    </div>
+
+    <footer>
+      Notes are published, de-identified case reports (PMC-Patients, CC-BY-NC-SA) — <strong>not raw EHR,
+      not for clinical use</strong>. This is a search demo. See RFC 0076.
+    </footer>
+  </main>
+
+  <script type="module">
+    // Skeleton wiring. Renders the chips and the routing inspector; the /api/search
+    // and /api/facets calls hit the backend (search/app.py or src/worker.js), which
+    // return the gateway's routing echo. This file is intentionally shelf-shaped and
+    // minimal — align it with ../shelf/web/static rather than forking a new UI.
+    const chips = await (await fetch('/queries.json')).json();
+    const elChips = document.getElementById('chips');
+    const box = document.getElementById('box');
+    for (const ex of chips.examples) {
+      const b = document.createElement('button');
+      b.className = 'chip';
+      b.textContent = ex.text + (ex.typo ? ' (typo)' : '');
+      b.onclick = () => { box.value = ex.text; renderEcho(ex); box.focus(); /* TODO: run(ex.text) */ };
+      elChips.appendChild(b);
+    }
+    function renderEcho(ex) {
+      // Until the backend is wired, preview the route the chip is chosen to land on.
+      const insp = document.getElementById('inspector');
+      const note = (ex.note || '');
+      const route = note.includes('hybrid_text') ? 'hybrid_text' : note.includes('semantic') ? 'semantic' : 'fused';
+      insp.style.display = 'block';
+      const badge = document.getElementById('badge');
+      badge.className = 'badge ' + route; badge.textContent = route;
+      document.getElementById('signals').textContent = '';
+      document.getElementById('note').textContent = ex.note || '';
+      // TODO: replace with the real gateway `routing`/`hybrid` echo from /api/search.
+    }
+  </script>
+</body>
+</html>

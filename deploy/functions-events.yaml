@@ -1,0 +1,44 @@
+# classify-events — the Gemma clinical-event cascade Function (the GPU showcase).
+#
+# The transform-runtime showcase RFC 0076 elevates beyond routing: an open-weight
+# Gemma cascade (vLLM, guided decoding) on the GPU pool, KEDA scale-to-zero,
+# reading each note ONCE and writing back clinical events — medication
+# discontinuation the headline — plus the derived facet labels in the same pass
+# (one GPU pass, many labels). The cascade design is RFC 0072 (moment); this is
+# its first built instance, specialized to clinical events.
+#
+# Contrast with moment's deployed enrichment (pool: cpu, rule-based): this is
+# pool: gpu, model-served. The `discovery` + `write` triggers backfill existing
+# rows and enrich new ones; `filter: events Eq null` claims only un-classified
+# notes so a re-run is cheap.
+apiVersion: hevlayer.com/v1alpha1
+kind: Function
+metadata:
+  name: chart-classify-events
+  namespace: chart
+spec:
+  targetNamespaces: [chart-notes]
+  inputs: [id, text]
+  output: events
+  version: v1
+  filter: ["events", "Eq", null]      # only notes not yet classified
+  triggers: [discovery, write]
+  worker:
+    # GPU image with vLLM + the Gemma weights cache (the `classifier` extra).
+    image: ghcr.io/hev/chart-classifier:latest
+    batchSize: 16                       # RFC 0068: prefer a batch=True entrypoint —
+                                        # one vLLM forward pass per claim, not 16.
+    timeoutSeconds: 1200
+    env:
+      - name: CHART_EVENTS_MODEL
+        value: google/gemma-2-9b-it     # open weights, A10G-fit (RFC 0072)
+      - name: LAYER_GATEWAY_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: chart-gateway
+            key: LAYER_GATEWAY_API_KEY
+    command: ["uv", "run", "python", "-m", "functions.classify_events"]
+  scaling:
+    pool: gpu                           # the one Function on the GPU pool
+    mode: autoscale
+    replicas: { min: 0, max: 2 }        # scale-to-zero; bursts on backfill

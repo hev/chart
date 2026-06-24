@@ -1,0 +1,47 @@
+# Index — operational policy for the chart-notes namespace.
+#
+# A snapshot in hev layer IS a materialized facet histogram: per-field distinct
+# values and counts, written durably to S3. Listing a field under facetFields
+# turns on the automatic snapshot writer; the gateway re-materializes the
+# histogram on each upstream-stable advance, and the search backends read it back
+# to draw the clinical facet rail (GET /api/facets → latest_facets() in
+# chart_common/gateway.py).
+#
+# The imperative twin — for the shared deployed gateway, where chart does NOT own
+# this CR — is the indexer calling create_snapshot(field=…, source="origin") once
+# per facet after upserting (chart_common/gateway.py:materialize_facet_snapshots).
+# Same materialized body, triggered by code instead of the auto-writer.
+#
+# NOTE: the column SCHEMA (text → FTS+fuzzy, the facet types, phi_flag) is NOT
+# here — it is asserted inline and idempotently on every write
+# (chart_common/gateway.py:SCHEMA). The Index CR owns *operational* policy.
+apiVersion: hevlayer.com/v1
+kind: Index
+metadata:
+  name: chart-notes
+  namespace: chart
+spec:
+  backend:
+    storeRef: turbopuffer-default
+    namespace: chart-notes
+    distanceMetric: cosine_distance
+  metadata:
+    labels:
+      app: chart
+    tags:
+      - clinical-notes
+      - routing-demo
+  # --- The clinical facet rail. Several of these are UDF writeback (functions/),
+  #     so the snapshots fill in as enrichment runs. age (continuous) is not a
+  #     facet — age_band is. ---
+  snapshot:
+    facetFields:
+      - specialty
+      - age_band
+      - diagnosis_category
+      - gender
+    interval: 5m
+    retention: never   # 167k notes, a few small fields — keep all history
+  scan:
+    threads: 8
+  consistency: strong

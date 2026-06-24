@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node / web
+node_modules/
+dist/
+.wrangler/
+
+# Local data + caches (dataset is downloaded, never committed)
+data/
+.cache/
+*.parquet
+*.jsonl
+
+# Env / secrets — never commit the gateway key
+.env
+.env.local
+*.local
+.dev.vars
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Claude Code — local session traces
+.claude/traces/
