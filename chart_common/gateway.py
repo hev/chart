@@ -14,6 +14,7 @@ from .config import Settings
 # `events` is the Gemma cascade's output (functions/classify_events.py) — the
 # clinical-event facet that lets "medication discontinued" compose with routing.
 FACET_FIELDS = ["specialty", "age_band", "diagnosis_category", "gender", "events"]
+SNAPSHOT_IN_PROGRESS = {"queued", "pending", "running"}
 
 # Explicit schema for the columns tpuf can't (or shouldn't) infer.
 #  - text: the FTS + fuzzy field the Auto router ranks over (RFC 0022/0057) —
@@ -54,17 +55,21 @@ SCHEMA: dict[str, Any] = {
 
 
 def make_client(settings: Settings) -> AsyncHevlayer:
-    if not settings.api_key:
-        raise SystemExit(
-            "No gateway key. Set LAYER_GATEWAY_API_KEY in .env — it's the upstream "
-            "Turbopuffer key (1Password: layer-turbopuffer / mesh-staging). "
-            "Or run with --dry-run to skip the gateway."
-        )
+    require_gateway_key(settings)
     return AsyncHevlayer(
         api_key=settings.api_key,
         base_url=settings.gateway_url,
         timeout=settings.http_timeout_seconds,
     )
+
+
+def require_gateway_key(settings: Settings) -> None:
+    if not getattr(settings, "api_key", None):
+        raise SystemExit(
+            "No gateway key. Set LAYER_GATEWAY_API_KEY in .env — it's the upstream "
+            "Turbopuffer key (1Password: layer-turbopuffer / mesh-staging). "
+            "Or run with --dry-run to skip the gateway."
+        )
 
 
 async def close_client(layer: AsyncHevlayer) -> None:
@@ -100,28 +105,116 @@ async def materialize_facet_snapshots(
     for field_name in fields:
         job = await layer.create_snapshot(namespace, {"field": field_name, "source": "origin"})
         start = time.monotonic()
-        while job.status == "running":
+        while _read(job, "status") in SNAPSHOT_IN_PROGRESS:
             if time.monotonic() - start > timeout:
-                raise TimeoutError(f"snapshot {field_name} still running after {timeout:.0f}s")
+                raise TimeoutError(f"snapshot {field_name} still in progress after {timeout:.0f}s")
             await asyncio.sleep(1.0)
-            job = await layer.get_snapshot_job(namespace, job.id)
-        if job.status != "completed":
-            raise RuntimeError(f"snapshot {field_name} {job.status}: {job.error or 'no detail'}")
+            job = await layer.get_snapshot_job(namespace, _read(job, "id"))
+        if _read(job, "status") != "completed":
+            raise RuntimeError(f"snapshot {field_name} {_read(job, 'status')}: {_read(job, 'error') or 'no detail'}")
+
+
+def _read(value: Any, name: str, default: Any = None) -> Any:
+    if isinstance(value, dict):
+        return value.get(name, default)
+    return getattr(value, name, default)
+
+
+def count_selector(
+    *, query: str | None = None, vector: list[float] | None = None, radius: float | None = None
+) -> dict[str, Any]:
+    """The Scans API selector that defines a search's match set:
+      - keyword/fused query → an exact BM25 `fts` predicate over the text field;
+      - semantic query → an `ann` ball of `radius` (cosine distance) around the
+        query vector, since semantic relevance has no exact lexical match set.
+        Approximate by ANN recall.
+    A request carries at most one ranked selector; vector+radius wins over query.
+
+    Gap: the `fts` selector is exact BM25 only — it cannot mirror the `hybrid_text`
+    route's per-token fuzzy legs (RFC 0057), so a fuzzy/typo-surfaced query (afib,
+    aspirn) the route retrieves counts as zero here. The UI guards against the
+    resulting "count < hits shown" contradiction by withholding the live count; the
+    real fix is a fuzzy-aware scan selector (see LAYER_IMPROVEMENTS.md)."""
+    if vector is not None and radius is not None:
+        return {"ann": {"field": "vector", "vector": vector, "radius": radius}}
+    if query:
+        return {"fts": {"field": "text", "query": query}}
+    return {}
+
+
+async def scan_count(
+    layer: AsyncHevlayer,
+    namespace: str,
+    *,
+    selector: dict[str, Any] | None = None,
+    filters: Any | None = None,
+    timeout_seconds: int = 25,
+) -> int | None:
+    """Count of rows matching the current search (Scans API, count mode — RFC
+    docs/api/scans). `selector` is the fts/ann match set; `filters` is ANDed on.
+    Slower than top-k (origin scatter/gather), so the UI calls this async, after
+    results render. Returns None on any failure."""
+    body: dict[str, Any] = {"mode": "count", "source": "auto", "timeout_seconds": timeout_seconds}
+    if filters is not None:
+        body["filters"] = filters
+    body.update(selector or {})
+    try:
+        resp = await layer.create_scan(namespace, body)
+    except Exception:
+        return None
+    count = _read(resp, "count")
+    return int(count) if isinstance(count, int) else None
+
+
+async def scan_facet_values(
+    layer: AsyncHevlayer,
+    namespace: str,
+    *,
+    field: str,
+    selector: dict[str, Any] | None = None,
+    filters: Any | None = None,
+    limit: int = 24,
+    timeout: float = 25.0,
+) -> list[dict] | None:
+    """The live per-search facet histogram for one field (Scans API, values mode):
+    the distinct values of `field` over the rows the `selector` picks, each with its
+    document count (`v`/`n`, the same vocabulary the snapshot rail uses). Returns
+    None on failure so the caller can fall back to the corpus snapshot."""
+    body: dict[str, Any] = {"mode": "values", "field": field, "source": "auto"}
+    if filters is not None:
+        body["filters"] = filters
+    body.update(selector or {})
+    try:
+        job = await layer.scan(namespace, body, timeout=timeout)
+        if _read(job, "status") != "completed":
+            return None
+        results = await layer.get_scan_results(namespace, _read(job, "id"), limit=limit)
+    except Exception:
+        return None
+    values = _read(results, "values", []) or []
+    return [{"value": _read(v, "v"), "count": _read(v, "n")} for v in values]
 
 
 async def latest_facets(
-    layer: AsyncHevlayer, namespace: str, *, field: str, limit: int = 14
+    layer: AsyncHevlayer, namespace: str, *, field: str, limit: int = 14, history_limit: int = 20
 ) -> tuple[list[dict] | None, dict | None]:
     """Read the newest stored facet snapshot for `field` (value/count + sha
     provenance), or (None, None) when no snapshot body exists yet."""
-    history = await layer.list_namespace_history(namespace, limit=1)
-    if not history:
-        return None, None
-    body = await layer.get_namespace_snapshot(namespace, history[0].sha)
-    column = next((f for f in body.fields if f.name == field), None)
-    if column is None:
-        return None, None
-    top = sorted(column.values, key=lambda v: v.n, reverse=True)[:limit]
-    facets = [{"value": v.v, "count": v.n} for v in top]
-    provenance = {"sha": body.sha, "watermark_ms": body.watermark_ms, "row_count": body.row_count}
-    return facets, provenance
+    history = await layer.list_namespace_history(namespace, limit=history_limit)
+    for snapshot in history or []:
+        snapshot_sha = _read(snapshot, "sha")
+        if not snapshot_sha:
+            continue
+        body = await layer.get_namespace_snapshot(namespace, snapshot_sha)
+        column = next((f for f in _read(body, "fields", []) if _read(f, "name") == field), None)
+        if column is None:
+            continue
+        top = sorted(_read(column, "values", []), key=lambda v: _read(v, "n", 0), reverse=True)[:limit]
+        facets = [{"value": _read(v, "v"), "count": _read(v, "n")} for v in top]
+        provenance = {
+            "sha": _read(body, "sha") or snapshot_sha,
+            "watermark_ms": _read(body, "watermark_ms"),
+            "row_count": _read(body, "row_count"),
+        }
+        return facets, provenance
+    return None, None

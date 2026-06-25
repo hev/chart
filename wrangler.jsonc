@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "chart",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-06-24",
+  "assets": {
+    "directory": "./web/static",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "vars": {
+    "LAYER_GATEWAY_URL": "https://aws-us-east-1.hevlayer.com",
+    "CHART_NAMESPACE": "chart-notes",
+    "CHART_EMBED_MODEL": "Snowflake/snowflake-arctic-embed-m-v1.5"
+    // Production search also needs:
+    // - LAYER_GATEWAY_API_KEY as a Wrangler secret
+    // - CHART_QUERY_EMBED_URL as a Wrangler var or secret
+    // - CHART_QUERY_EMBED_KEY as a Wrangler secret when the embedder requires auth
+  }
+}

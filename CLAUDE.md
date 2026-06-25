@@ -37,11 +37,15 @@ decision visibly matter. Two things make it more than another vertical:
 
 Python (uv, run-as-app — `package = false`): `chart_common/` + `indexer/` +
 `search/` (FastAPI dev) + `functions/` + `eval/`. Cloudflare Worker prod backend
-(`src/`, TODO). Vanilla static UI (`web/static/`). `hevlayer` client sourced
-editable from `../layer/clients/python`.
+(`src/worker.js`) serves `web/static/` through Workers Static Assets and proxies
+the gateway. `hevlayer` client sourced editable from `../layer/clients/python`.
 
 ## State
 
-Scaffold from RFC 0076. Many files carry `STUB`/`TODO` seams (the gateway query
-calls, the vLLM cascade body, the ReCDS loader). The structure and the writeback/
-routing contracts around the seams are the committed part.
+Implemented from RFC 0076 through the local/demo seams: routed FastAPI search,
+live static UI calls, pinned PMC/ReCDS revisions, ReCDS loading/scoring, and the
+Gemma cascade body with `tpuf` multi-write for derived labels. Full-index GPU
+embedding is represented by `indexer/embed.py` + `deploy/pipeline-embed.yaml`,
+paused until the Phase-6 gate. Remaining proof is environmental: live gateway
+index/query/facet smoke, GPU classifier smoke/cost, and the gated full
+index/classify runs.

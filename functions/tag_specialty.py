@@ -1,9 +1,8 @@
 """tag-specialty — map a note to a clinical specialty (the facet rail).
 
-A row-preserving Function (RFC 0004/0040), scale-to-zero. One of the three
-enrichment UDFs RFC 0076 names as the (secondary) transform-runtime act behind
-the routing headline — and the source of a high-signal facet PMC-Patients does
-not carry natively.
+Legacy CPU fallback for the specialty facet. The primary path is now the Gemma
+cascade in `classify_events.py`, which derives `specialty` in the same GPU pass as
+the clinical events.
 
 Deployed as a `Function` CRD pointing at the worker image that runs this module;
 discovery, batching, claim leases, retries, and `patch_columns` writeback are the
@@ -26,10 +25,9 @@ SPECIALTIES = [
 def tag_specialty(*, id: str, text: str | None) -> str:
     """Return one specialty from SPECIALTIES for the note `text`.
 
-    STUB. The real implementation is a small classifier — open-weight LLM with
-    guided decoding over SPECIALTIES (the RFC 0072 cascade shape), or a rule table
-    over presenting features. Kept deterministic here so the scaffold runs without
-    a model. Replace the body; the decorator contract stays.
+    Deterministic fallback used when the GPU cascade has not populated the facet.
+    The decorator contract stays compatible with a later rule table or small CPU
+    classifier.
     """
     if not text:
         return "other"

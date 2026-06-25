@@ -28,3 +28,36 @@ Open sub-questions:
 - Keep this set OUT of the live "find similar patients" candidate set (the holdout
   discipline) — though these are note-retrieval queries, not PPR, so the overlap
   is small.
+
+## Builder
+
+`eval/bimodal.py` implements the weak-supervision version of this plan. It writes
+BEIR-style `queries.jsonl` and `qrels.tsv`, metadata documenting the short / long /
+typo mix plus the pinned PMC-Patients and ReCDS source revisions, and `review.csv`
+for the required hand-judged slice:
+
+```bash
+uv run --extra eval python -m eval.bimodal \
+  --short-notes 500 \
+  --long-limit 500 \
+  --review-limit-per-kind 25 \
+  --out eval/out/bimodal
+```
+
+The labels are not publication-grade until the hand-judged slice exists, but the
+artifact is enough to run fixed-strategy comparisons and expose routing failures.
+Fill `human_judgment` and `review_notes` in `eval/out/bimodal/review.csv` before
+claiming a routing number from the weak labels.
+
+Replay it through the live namespace with the same eval harness:
+
+```bash
+uv run --extra eval python -m eval.recds --beir-dir eval/out/bimodal --strategies auto,semantic,bm25,fused
+```
+
+The eval JSON includes aggregate metrics plus `metrics_by_kind`, so the routing
+claim can be checked separately for `short`, `typo`, and `long` queries instead
+of hiding a weak route behind the mixed average. When present, the final audit
+requires the bimodal report to carry the same pinned dataset/ReCDS provenance, so
+a stale routing-set build cannot accidentally stand in for the current public
+pins.

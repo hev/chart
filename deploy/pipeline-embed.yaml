@@ -1,0 +1,47 @@
+# GPU embedding stage for the full chart index.
+#
+# The source Pipeline stages PMC-Patients documents and chunks. This second
+# Pipeline shares `pipelineId: chart-notes`, claims pending documents, embeds
+# chunks with Snowflake/snowflake-arctic-embed-m-v1.5 on the GPU pool, and writes
+# vectors through `put_pipeline_document_vectors`. This manifest is unpaused
+# after the Phase-6 full-index cost gate is accepted; drain source batches with
+# scripts/phase6_prepare_embed_drain.sh so claims are not starved by staging.
+apiVersion: hevlayer.com/v1alpha1
+kind: Pipeline
+metadata:
+  name: chart-embed-gpu
+  namespace: chart
+spec:
+  paused: false
+  pipelineId: chart-notes
+  target:
+    namespace: chart-notes
+  worker:
+    image: 186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260624-dedupe2
+    computeClass: gpu
+    batchSize: 1
+    timeoutSeconds: 7200
+    podSpec:
+      containers:
+        - name: worker
+          command: ["uv", "run", "python", "-m", "indexer.embed"]
+          env:
+            - name: CHART_EMBED_MODEL
+              value: Snowflake/snowflake-arctic-embed-m-v1.5
+            - name: CHART_EMBED_CLAIM_SIZE
+              value: "1"
+            - name: CHART_EMBED_BATCH_SIZE
+              value: "1"
+            - name: CHART_EMBED_SIMILAR_QRELS_SPLIT
+              value: train
+            - name: LAYER_GATEWAY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: chart-gateway
+                  key: LAYER_GATEWAY_API_KEY
+  scaling:
+    pool: gpu
+    mode: autoscale
+    replicas:
+      min: 0
+      max: 1

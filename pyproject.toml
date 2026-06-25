@@ -8,8 +8,8 @@ license = { text = "CC-BY-NC-SA-4.0" }
 requires-python = ">=3.11"
 dependencies = [
     "hevlayer",
-    "fastembed>=0.4",        # CPU dev embeddings; swap to sentence-transformers if the
-                             # exact arctic-embed-m-v1.5 tag isn't in fastembed's catalog
+    "fastembed>=0.4",        # CPU dev embeddings when the requested model is in its ONNX catalog.
+    "sentence-transformers>=3.0",  # fallback for exact snowflake-arctic-embed-m-v1.5.
     "datasets>=3.0",
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
@@ -23,11 +23,15 @@ search = [
 eval = [
     "ir-measures>=0.3",      # MRR / nDCG@10 / Recall@1k over ReCDS qrels
 ]
+test = [
+    "pytest>=8.2",
+    "PyYAML>=6.0",
+]
 # GPU-only — the Gemma clinical-event cascade (functions/classify_events.py).
 # Not installed in the CPU dev venv; runs in the Function worker image. See
 # ../moment for the vLLM + guided-decoding pattern this mirrors (RFC 0072).
 classifier = [
-    "vllm>=0.6",
+    "vllm>=0.6; sys_platform == 'linux'",
     "transformers>=4.44",
 ]
 
@@ -35,6 +39,9 @@ classifier = [
 # `uv run python -m indexer` finds chart_common/ on the cwd path.
 [tool.uv]
 package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
 
 # hevlayer is not on PyPI yet (0.1, design-partner phase). Source it editable from
 # the sibling layer checkout; flip to a plain PyPI pin when it publishes.

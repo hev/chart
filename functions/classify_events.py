@@ -31,10 +31,13 @@ discontinued due to an adverse reaction" = an `events` filter over routed search
 from __future__ import annotations
 
 import asyncio
+import argparse
 import json
 import os
 from functools import lru_cache
+from typing import Any
 
+from chart_common.config import Settings
 from hevlayer.udf import run_udf_worker, udf
 
 # The clinical-event taxonomy the guided decoder is constrained to. Closed set so
@@ -53,6 +56,15 @@ EVENT_TYPES = [
     "hospital_admission",
     "discharge",
     "death",
+]
+
+WRITEBACK_FIELDS = [
+    "events",
+    "has_med_discontinuation",
+    "has_adverse_event",
+    "diagnosis_category",
+    "specialty",
+    "discontinuation_reason",
 ]
 
 DISCONTINUATION_REASONS = [
@@ -99,7 +111,14 @@ def _engine():
     """Lazy vLLM engine — loaded once per worker and held resident across the
     batch (RFC 0068 setup/lifecycle, so a model-loading pod doesn't count as
     serving capacity). Stubbed import so the module is inspectable without a GPU."""
-    from vllm import LLM  # noqa: F401  (GPU-only; in the `classifier` extra)
+    try:
+        from vllm import LLM  # noqa: F401  (GPU-only; in the `classifier` extra)
+    except ImportError as exc:
+        raise RuntimeError(
+            "vLLM is required for the Gemma classifier. Run this command in the "
+            "Linux GPU classifier image or another GPU environment with the "
+            "`classifier` extra installed."
+        ) from exc
 
     return LLM(model=MODEL)
 
@@ -107,23 +126,21 @@ def _engine():
 def digest(note_text: str) -> dict:
     """Tier 1 — the one GPU pass. Guided-decode the note to DIGEST_SCHEMA.
 
-    STUB body: wire `_engine().generate(...)` with `guided_json=DIGEST_SCHEMA`
-    (vLLM `GuidedDecodingParams`). The RFC 0068 batch=True entrypoint runs ONE
-    forward pass per claim over the whole batch — the GPU-efficient form; per-note
-    here for legibility. Returns the parsed digest dict.
+    vLLM changed the Python structured-output API across releases: newer versions
+    use `structured_outputs`, older versions use `guided_decoding`. Support both
+    so the Function image can move independently of this repo.
     """
     if not note_text:
         return {"events": [], "summary": ""}
-    # _prompt = _DIGEST_PROMPT.format(note=note_text)
-    # out = _engine().generate(_prompt, guided_json=DIGEST_SCHEMA)
-    # return json.loads(out[0].outputs[0].text)
-    raise NotImplementedError("vLLM guided-decode the note to DIGEST_SCHEMA")
+    prompt = _DIGEST_PROMPT.format(note=note_text)
+    out = _engine().generate([prompt], _sampling_params())
+    return _parse_digest(out[0].outputs[0].text)
 
 
 def derive_labels(d: dict) -> dict:
     """Tier 2 — pure-python reads from the digest. No extra GPU. The denormalized,
     filterable label set that goes on the row."""
-    events = sorted({e["type"] for e in d.get("events", []) if "type" in e})
+    events = sorted({e["type"] for e in _event_items(d) if e.get("type") in EVENT_TYPES})
     return {
         "events": events,
         "has_med_discontinuation": "medication_discontinued" in events,
@@ -134,26 +151,119 @@ def derive_labels(d: dict) -> dict:
     }
 
 
+def discontinuation_reason(d: dict) -> str | None:
+    return next(
+        (
+            e.get("reason")
+            for e in _event_items(d)
+            if e.get("type") == "medication_discontinued" and e.get("reason") in DISCONTINUATION_REASONS
+        ),
+        None,
+    )
+
+
+def _event_items(d: dict) -> list[dict]:
+    events = d.get("events", [])
+    if not isinstance(events, list):
+        return []
+    return [event for event in events if isinstance(event, dict)]
+
+
+def _clean_label(value: Any, *, default: str = "other") -> str:
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return default
+
+
 def refine_discontinuation(note_text: str) -> dict:
     """Tier 3 — gated. Only call when Tier 1 found medication_discontinued. A
-    targeted pass for the structured reason. STUB."""
-    raise NotImplementedError("gated second pass for discontinuation_reason")
+    targeted pass for the structured reason."""
+    d = digest(note_text)
+    return {"discontinuation_reason": discontinuation_reason(d) or "unspecified"}
+
+
+def _sampling_params():
+    from vllm import SamplingParams
+
+    kwargs = {"temperature": 0.0, "max_tokens": 512}
+    try:
+        from vllm.sampling_params import StructuredOutputsParams
+
+        return SamplingParams(
+            **kwargs,
+            structured_outputs=StructuredOutputsParams(json=DIGEST_SCHEMA),
+        )
+    except (ImportError, TypeError):
+        from vllm.sampling_params import GuidedDecodingParams
+
+        return SamplingParams(
+            **kwargs,
+            guided_decoding=GuidedDecodingParams(json=DIGEST_SCHEMA),
+        )
+
+
+def _parse_digest(text: str) -> dict:
+    parsed = json.loads(text)
+    if not isinstance(parsed, dict):
+        raise ValueError("digest must be a JSON object")
+    events = []
+    for event in _event_items(parsed):
+        event_type = event.get("type")
+        if event_type not in EVENT_TYPES:
+            continue
+        normalized = {"type": event_type}
+        drug = event.get("drug")
+        if isinstance(drug, str) and drug.strip():
+            normalized["drug"] = drug.strip()
+        reason = event.get("reason")
+        if reason in DISCONTINUATION_REASONS:
+            normalized["reason"] = reason
+        events.append(normalized)
+    return {
+        "summary": _clean_label(parsed.get("summary"), default=""),
+        "events": events,
+        "diagnosis_category": _clean_label(parsed.get("diagnosis_category")),
+        "specialty": _clean_label(parsed.get("specialty")),
+    }
 
 
 # --- The UDF entrypoint (moment's @udf + run_udf_worker wiring). -------------
 # Primary output is `events` ([]string) on the documented single-output sugar.
-# The full Tier-2 label set (has_med_discontinuation, diagnosis_category, …) is
-# the `tpuf`-parameter multi-write — denormalized onto the row in one patch
-# (RFC 0072 "labels denormalized onto the documents"); folded in when wired.
+# The full Tier-2 label set is patched through the injected `tpuf` client, settling
+# RFC 0076's multi-write question as one cascade Function: one model pass, many
+# denormalized labels.
 @udf(id="chart-classify-events", inputs=["id", "text"], output="events", batch_size=16)
-def classify_events_udf(id: object = "", text: object = "") -> list[str]:
+async def classify_events_udf(
+    id: object = "", text: object = "", tpuf: Any | None = None
+) -> list[str]:
     note = "" if text is None else str(text)
     d = digest(note)
-    return derive_labels(d)["events"]
+    labels = derive_labels(d)
+    if tpuf is not None and id:
+        attrs = {
+            "events": [labels["events"]],
+            "has_med_discontinuation": [labels["has_med_discontinuation"]],
+            "has_adverse_event": [labels["has_adverse_event"]],
+            "diagnosis_category": [labels["diagnosis_category"]],
+            "specialty": [labels["specialty"]],
+            "discontinuation_reason": [
+                discontinuation_reason(d) if labels["has_med_discontinuation"] else None
+            ],
+        }
+        await tpuf.patch_columns(Settings().namespace, [str(id)], attrs)
+    return labels["events"]
 
 
 def main() -> None:
-    once = os.environ.get("CHART_UDF_ONCE", "").strip().lower() in {"1", "true", "yes"}
+    parser = argparse.ArgumentParser(description="Run the chart clinical-event classifier UDF worker")
+    parser.add_argument("--once", action="store_true", help="claim one batch and exit")
+    args = parser.parse_args()
+    if not Settings().api_key:
+        raise SystemExit(
+            "No gateway key. Set LAYER_GATEWAY_API_KEY in .env — it's the upstream "
+            "Turbopuffer key (1Password: layer-turbopuffer / mesh-staging)."
+        )
+    once = args.once or os.environ.get("CHART_UDF_ONCE", "").strip().lower() in {"1", "true", "yes"}
     asyncio.run(run_udf_worker(classify_events_udf, udf_id="chart-classify-events", once=once))
 
 

@@ -15,6 +15,7 @@ dist/
 # Local data + caches (dataset is downloaded, never committed)
 data/
 .cache/
+eval/out/
 *.parquet
 *.jsonl
 

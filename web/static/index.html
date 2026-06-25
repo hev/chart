@@ -3,33 +3,82 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>chart — clinical notes that show their routing</title>
+  <title>chart — search published patient case reports</title>
   <style>
-    :root { --ink:#1a2230; --muted:#67768c; --line:#e3e8ef; --kw:#0a7d4d; --fused:#9a6b00; --sem:#2156d6; }
+    :root { --ink:#1a2230; --muted:#67768c; --line:#e3e8ef; --accent:#2156d6; --accent-bg:#eef3fe; --kw:#0a7d4d; --fused:#9a6b00; --sem:#2156d6; }
     body { font:15px/1.5 ui-sans-serif,system-ui,-apple-system,sans-serif; color:var(--ink); margin:0; }
-    main { max-width:860px; margin:0 auto; padding:2rem 1.25rem; }
-    h1 { font-size:1.4rem; margin:0 0 .25rem; }
-    p.lede { color:var(--muted); margin:.25rem 0 1.5rem; }
+    main { max-width:880px; margin:0 auto; padding:2rem 1.25rem; }
+    h1 { font-size:1.4rem; margin:0 0 .35rem; }
+    .site-header { position:sticky; top:0; z-index:10; background:rgba(255,255,255,.85); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border-bottom:1px solid var(--line); padding:1rem 1.25rem; }
+    .site-header .nav { max-width:860px; margin:0 auto; min-height:2rem; display:flex; justify-content:space-between; align-items:center; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.875rem; }
+    .wordmark { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:700; font-size:1.0625rem; letter-spacing:-.02em; display:inline-flex; align-items:center; color:var(--ink); text-decoration:none; }
+    .wordmark .cursor { display:inline-block; width:.5em; height:1em; background:#e25822; margin-left:.18em; vertical-align:text-bottom; animation:blink 1.2s steps(2) infinite; }
+    .wordmark .suffix { color:var(--muted); font-weight:500; margin-left:.4em; }
+    .nav-links { display:flex; gap:1.5rem; align-items:center; }
+    .nav-links a { color:var(--muted); text-decoration:none; }
+    .nav-links a:hover { color:#e25822; }
+    @keyframes blink { 0%,50% { opacity:1; } 51%,100% { opacity:0; } }
+    p.lede { margin:.25rem 0 .6rem; }
+    p.uses { color:var(--muted); font-size:.92rem; margin:0 0 1.4rem; }
     #box { width:100%; padding:.7rem .9rem; font-size:1rem; border:1px solid var(--line); border-radius:10px; box-sizing:border-box; }
     .chips { display:flex; flex-wrap:wrap; gap:.4rem; margin:.75rem 0 1rem; }
     .chip { border:1px solid var(--line); background:#fff; border-radius:999px; padding:.3rem .7rem; font-size:.85rem; cursor:pointer; }
+    .chip:hover { border-color:var(--accent); }
     .badge { display:inline-block; font-weight:600; font-size:.8rem; padding:.15rem .5rem; border-radius:6px; color:#fff; }
-    .badge.hybrid_text { background:var(--kw); } .badge.fused { background:var(--fused); } .badge.semantic { background:var(--sem); }
+    .badge.hybrid_text { background:var(--kw); } .badge.fused { background:var(--fused); } .badge.semantic { background:var(--sem); } .badge.browse { background:var(--muted); }
     #inspector { border:1px solid var(--line); border-radius:10px; padding:.9rem; margin:1rem 0; background:#fbfcfe; display:none; }
     #inspector .note { color:var(--muted); margin-top:.4rem; }
-    .layout { display:grid; grid-template-columns:1fr 200px; gap:1.5rem; }
-    .rail h3 { font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:.5rem 0 .25rem; }
-    .rail .prov { font-size:.7rem; color:var(--muted); }
+    #active { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem; margin:.25rem 0 1rem; }
+    #active .alabel { font-size:.8rem; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+    .afilter { border:1px solid var(--accent); background:var(--accent-bg); color:var(--accent); border-radius:999px; padding:.25rem .6rem; font-size:.82rem; cursor:pointer; }
+    .afilter span { opacity:.7; margin-left:.15rem; }
+    .aclear { border:none; background:none; color:var(--muted); font-size:.82rem; cursor:pointer; text-decoration:underline; }
+    .layout { display:grid; grid-template-columns:1fr 210px; gap:1.5rem; }
+    .rail .railhead { font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:.25rem 0 .5rem; font-weight:600; }
+    .rail .railhead.counting { color:var(--accent); }
+    .fval.dim { opacity:.4; }
+    .rail h3 { font-size:.78rem; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); margin:.85rem 0 .15rem; }
+    .rail .facet:first-of-type h3 { margin-top:0; }
+    .fval { display:flex; justify-content:space-between; align-items:baseline; gap:.5rem; width:100%; text-align:left; border:none; background:none; color:var(--ink); padding:.22rem .35rem; border-radius:6px; font-size:.88rem; cursor:pointer; font-family:inherit; }
+    .fval:hover { background:#f1f5fb; }
+    .fval.on { background:var(--accent-bg); color:var(--accent); font-weight:600; }
+    .fname { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .fcount { color:var(--muted); font-size:.78rem; font-variant-numeric:tabular-nums; }
+    .fval.on .fcount { color:var(--accent); }
+    .railfoot { font-size:.7rem; color:var(--muted); margin-top:.9rem; border-top:1px solid var(--line); padding-top:.5rem; }
     .hit { padding:.75rem 0; border-top:1px solid var(--line); }
+    .hit h2 { font-size:1rem; margin:0 0 .2rem; }
     .hit .meta { color:var(--muted); font-size:.82rem; }
+    .hit p { margin:.35rem 0 0; }
+    .hit button { border:1px solid var(--line); background:#fff; border-radius:6px; padding:.2rem .45rem; font-size:.78rem; cursor:pointer; }
+    .empty { color:var(--muted); padding:.75rem 0; }
+    .pager { display:flex; align-items:center; justify-content:space-between; gap:.6rem; margin:1.1rem 0 .25rem; border-top:1px solid var(--line); padding-top:.8rem; }
+    .pager .pg { border:1px solid var(--line); background:#fff; border-radius:6px; padding:.3rem .65rem; font-size:.85rem; cursor:pointer; }
+    .pager .pg:not(:disabled):hover { border-color:var(--accent); color:var(--accent); }
+    .pager .pg:disabled { opacity:.4; cursor:default; }
+    .pager .pglabel { color:var(--muted); font-size:.8rem; text-align:center; }
     footer { color:var(--muted); font-size:.78rem; margin-top:2rem; border-top:1px solid var(--line); padding-top:1rem; }
   </style>
 </head>
 <body>
+  <header class="site-header">
+    <nav class="nav">
+      <a class="wordmark" href="https://hevlayer.com" target="_blank" rel="noopener" aria-label="hev layer — home">hev<span class="cursor" aria-hidden="true"></span><span class="suffix">layer</span></a>
+      <div class="nav-links">
+        <a href="https://hevlayer.com/docs/api/query/#query-routing" target="_blank" rel="noopener">docs</a>
+      </div>
+    </nav>
+  </header>
   <main>
     <h1>chart</h1>
-    <p class="lede">Clinical patient-notes search that <strong>shows its routing</strong>. One box; the
-      gateway picks keyword, fused, or semantic — and tells you why. A public twin of clinical notesearch.</p>
+    <p class="lede"><strong>Search a library of published, de-identified patient case reports the way you
+      think about a case</strong> — look something up by an exact term (a drug, a dose, a lab value, an
+      abbreviation), or describe a whole clinical picture in plain language. One box decides whether your
+      query is best answered by keyword, blended, or meaning-based search, shows you which, and deep-links
+      every match to its source report.</p>
+    <p class="uses">Find precedents for an unusual presentation · see how other clinicians managed a drug
+      or complication · build a quick cohort by specialty, age, or clinical event · pull up similar
+      patients from any result.</p>
 
     <input id="box" placeholder="metformin 500mg   ·   elderly woman with progressive dyspnea…" />
     <div class="chips" id="chips"></div>
@@ -41,43 +90,383 @@
       <div class="note" id="note"></div>
     </div>
 
+    <!-- Active filter chips — what's currently narrowing the corpus. -->
+    <div id="active" hidden></div>
+
     <div class="layout">
       <section id="results"></section>
       <aside class="rail" id="rail"></aside>
     </div>
 
-    <footer>
-      Notes are published, de-identified case reports (PMC-Patients, CC-BY-NC-SA) — <strong>not raw EHR,
-      not for clinical use</strong>. This is a search demo. See RFC 0076.
+    <footer aria-label="Dataset and safety notice">
+      Notes come from
+      <a href="https://huggingface.co/datasets/zhengyun21/PMC-Patients" target="_blank" rel="noreferrer">PMC-Patients</a>,
+      a public corpus of published, de-identified case reports licensed under
+      <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noreferrer">CC-BY-NC-SA-4.0</a>.
+      This is a search demo, <strong>not raw EHR and not for clinical use</strong>.
+      <br />
+      Routing, hybrid fusion, snapshots, and the live facet counts are all
+      <a href="https://hevlayer.com" target="_blank" rel="noreferrer">hev layer</a>
+      gateway features — the app adds no search code of its own.
     </footer>
   </main>
 
   <script type="module">
-    // Skeleton wiring. Renders the chips and the routing inspector; the /api/search
-    // and /api/facets calls hit the backend (search/app.py or src/worker.js), which
-    // return the gateway's routing echo. This file is intentionally shelf-shaped and
-    // minimal — align it with ../shelf/web/static rather than forking a new UI.
+    const results = document.getElementById('results');
+    const rail = document.getElementById('rail');
+    const inspector = document.getElementById('inspector');
+    const box = document.getElementById('box');
+
+    // Field display, and the order the rail shows facets in (clinically-interesting first).
+    const FIELD_LABELS = { events:'Clinical event', specialty:'Specialty', diagnosis_category:'Diagnosis', age_band:'Age', gender:'Sex' };
+    const FIELD_ORDER = ['events', 'specialty', 'diagnosis_category', 'age_band', 'gender'];
+
+    // UI state: the last text query (or '' to browse) and the active facet filters.
+    let lastQuery = '';
+    let lastNote = '';
+    let facetData = null;          // corpus-wide snapshot rail (stable value set + provenance)
+    let liveCounts = null;         // per-search counts from the Scans API (or null = show corpus)
+    let countsNote = '';           // why live counts were withheld (the fuzzy-scan gap), shown in the rail foot
+    let countsSeq = 0;             // guards against a stale scan landing after a newer search
+    let railCounting = false;      // a scan is in flight
+    const activeFilters = new Map(); // field -> Set<value>
+
+    // Pagination. Auto routing can't cursor-paginate (fused scores have no monotone
+    // bands), so we fetch a deeper page in one request and walk it client-side.
+    const PAGE_SIZE = 10;
+    const FETCH_DEPTH = 50;        // the gateway/backend top_k cap
+    let allRows = [];
+    let page = 0;
+
     const chips = await (await fetch('/queries.json')).json();
     const elChips = document.getElementById('chips');
-    const box = document.getElementById('box');
     for (const ex of chips.examples) {
       const b = document.createElement('button');
       b.className = 'chip';
       b.textContent = ex.text + (ex.typo ? ' (typo)' : '');
-      b.onclick = () => { box.value = ex.text; renderEcho(ex); box.focus(); /* TODO: run(ex.text) */ };
+      b.onclick = () => {
+        box.value = ex.text;
+        const expected = ex.expected_route ? `Expected: ${ex.expected_route}. ` : '';
+        lastQuery = ex.text;
+        lastNote = expected + ex.note;
+        execute();
+        box.focus();
+      };
       elChips.appendChild(b);
     }
-    function renderEcho(ex) {
-      // Until the backend is wired, preview the route the chip is chosen to land on.
-      const insp = document.getElementById('inspector');
-      const note = (ex.note || '');
-      const route = note.includes('hybrid_text') ? 'hybrid_text' : note.includes('semantic') ? 'semantic' : 'fused';
-      insp.style.display = 'block';
+    box.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') { lastQuery = box.value; lastNote = ''; execute(); }
+    });
+
+    await loadFacets();
+
+    // --- Filtering ---------------------------------------------------------
+
+    function filterParams() {
+      const out = [];
+      for (const [field, set] of activeFilters) {
+        for (const value of set) out.push('f=' + encodeURIComponent(field + ':' + value));
+      }
+      return out;
+    }
+
+    function toggleFilter(field, value) {
+      let set = activeFilters.get(field);
+      if (!set) { set = new Set(); activeFilters.set(field, set); }
+      if (set.has(value)) set.delete(value); else set.add(value);
+      if (!set.size) activeFilters.delete(field);
+      renderRail();
+      renderActive();
+      execute();
+    }
+
+    function clearFilters() {
+      activeFilters.clear();
+      renderRail();
+      renderActive();
+      execute();
+    }
+
+    // --- Query execution ---------------------------------------------------
+
+    async function execute() {
+      const q = lastQuery.trim();
+      const params = filterParams();
+      if (!q && !params.length) {
+        results.innerHTML = '';
+        inspector.style.display = 'none';
+        liveCounts = null;
+        countsNote = '';
+        railCounting = false;
+        countsSeq += 1; // cancel any in-flight scan; fall back to the corpus rail
+        renderRail();
+        return;
+      }
+      results.innerHTML = '<div class="empty">Searching…</div>';
+      const parts = [];
+      if (q) parts.push('q=' + encodeURIComponent(q));
+      parts.push(...params);
+      const search = parts.join('&');
+      try {
+        const data = await apiJson('/api/search?' + search + '&top_k=' + FETCH_DEPTH);
+        renderRouting(data, lastNote);
+        renderResults(data.rows || []);
+        // The Scans API showcase: count the full match set per facet, async, so the
+        // ranked results never wait on the (slower) scatter/gather scan. The route
+        // decides the scan selector — semantic counts a vector radius, not keywords.
+        const routing = data.routing || {};
+        refreshCounts(search, routing.route || routing.strategy || '');
+      } catch (err) {
+        results.innerHTML = `<div class="empty">Search failed: ${escapeHtml(err.message || err)}</div>`;
+      }
+    }
+
+    async function refreshCounts(search, route = '') {
+      const seq = ++countsSeq;
+      railCounting = true;
+      countsNote = '';
+      renderRail();
+      try {
+        const url = '/api/facet-counts?' + search + (route ? '&route=' + encodeURIComponent(route) : '');
+        const data = await apiJson(url);
+        if (seq !== countsSeq) return; // a newer search already superseded this one
+        // Honesty invariant: a match-total can never be smaller than the hits already
+        // on screen. When it is, the Scans selector under-counts what the route
+        // retrieved — the hybrid_text route ranks BM25 + per-token fuzzy legs (RFC
+        // 0057), but the Scans API only exposes an exact-BM25 `fts` selector, so a
+        // fuzzy/typo-surfaced match (afib, aspirn) is found by the route yet counted
+        // as zero. Rather than print a total that contradicts the visible results,
+        // withhold the live counts and keep the corpus rail. The same selector backs
+        // the per-facet scans, so they're withheld together. See LAYER_IMPROVEMENTS.md
+        // ("Scans API has no hybrid_text/fuzzy selector").
+        if (Number.isFinite(data.total) && data.total < allRows.length) {
+          liveCounts = null;
+          countsNote = 'Live counts need a fuzzy-aware scan — showing corpus totals';
+        } else {
+          liveCounts = data;
+        }
+      } catch (err) {
+        if (seq === countsSeq) liveCounts = null;
+      } finally {
+        if (seq === countsSeq) { railCounting = false; renderRail(); }
+      }
+    }
+
+    async function runSimilar(id) {
+      results.innerHTML = '<div class="empty">Finding similar patients…</div>';
+      try {
+        const data = await apiJson('/api/similar/' + encodeURIComponent(id) + '?top_k=' + FETCH_DEPTH);
+        renderRouting(data, 'Nearest-neighbor lookup from the selected patient id.');
+        renderResults(data.rows || []);
+      } catch (err) {
+        results.innerHTML = `<div class="empty">Similar-patient lookup failed: ${escapeHtml(err.message || err)}</div>`;
+      }
+    }
+
+    // --- Rendering ---------------------------------------------------------
+
+    function renderRouting(data, note = '') {
+      const routing = data.routing || {};
+      const route = routing.route || routing.strategy;
+      inspector.style.display = 'block';
       const badge = document.getElementById('badge');
-      badge.className = 'badge ' + route; badge.textContent = route;
-      document.getElementById('signals').textContent = '';
-      document.getElementById('note').textContent = ex.note || '';
-      // TODO: replace with the real gateway `routing`/`hybrid` echo from /api/search.
+      if (route) {
+        badge.className = 'badge ' + route;
+        badge.textContent = route;
+        document.getElementById('signals').textContent = [
+          data.took_ms ? `${data.took_ms} ms` : '',
+          routing.reason || routing.policy || ''
+        ].filter(Boolean).join(' · ');
+        document.getElementById('note').textContent = note;
+      } else {
+        // No query: an honest filtered browse, not a routed search.
+        badge.className = 'badge browse';
+        badge.textContent = 'filtered browse';
+        document.getElementById('signals').textContent = [
+          data.took_ms ? `${data.took_ms} ms` : '',
+          'no query — browsing the corpus by filter'
+        ].filter(Boolean).join(' · ');
+        document.getElementById('note').textContent = note || 'Type a query to route and rank within this filter.';
+      }
+    }
+
+    function renderResults(rows) {
+      allRows = rows;
+      page = 0;
+      renderPage();
+    }
+
+    function renderPage() {
+      if (!allRows.length) {
+        results.innerHTML = '<div class="empty">No results.</div>';
+        return;
+      }
+      const pages = Math.ceil(allRows.length / PAGE_SIZE);
+      page = Math.max(0, Math.min(page, pages - 1));
+      const start = page * PAGE_SIZE;
+      const slice = allRows.slice(start, start + PAGE_SIZE);
+      const nodes = slice.map(renderHit);
+      if (pages > 1) nodes.push(renderPager(pages, start, slice.length));
+      results.replaceChildren(...nodes);
+    }
+
+    function renderPager(pages, start, count) {
+      const pager = document.createElement('nav');
+      pager.className = 'pager';
+      pager.setAttribute('aria-label', 'Result pages');
+      // allRows is capped at FETCH_DEPTH; say "top-ranked" so it never reads as the
+      // full match count (the rail's "N matching cases" carries that).
+      const capped = allRows.length >= FETCH_DEPTH;
+      const label = `Showing ${start + 1}–${start + count} of ${allRows.length}${capped ? ' top-ranked' : ''} · page ${page + 1}/${pages}`;
+      pager.innerHTML =
+        `<button class="pg" data-step="-1"${page === 0 ? ' disabled' : ''}>‹ Prev</button>`
+        + `<span class="pglabel">${escapeHtml(label)}</span>`
+        + `<button class="pg" data-step="1"${page >= pages - 1 ? ' disabled' : ''}>Next ›</button>`;
+      pager.querySelectorAll('.pg').forEach((b) => {
+        b.onclick = () => { page += Number(b.dataset.step); renderPage(); results.scrollIntoView({ block: 'start' }); };
+      });
+      return pager;
+    }
+
+    function renderHit(row) {
+      const hit = document.createElement('article');
+      hit.className = 'hit';
+      const rowId = row.id || row['$id'] || '';
+      const title = row.title || row.pmid || rowId || 'Untitled patient note';
+      const url = row.source_url || '';
+      const age = row.age_band || row.age || '';
+      const eventText = Array.isArray(row.events) && row.events.length ? row.events.map(humanize).join(', ') : '';
+      const discontinuation = row.discontinuation_reason ? `reason: ${row.discontinuation_reason}` : '';
+      const facets = [age, row.gender, row.specialty, row.diagnosis_category, eventText, discontinuation]
+        .filter(Boolean)
+        .join(' · ');
+      const text = (row.text || '').slice(0, 320);
+      const similar = document.createElement('button');
+      similar.textContent = 'Similar';
+      similar.onclick = () => runSimilar(rowId);
+      hit.innerHTML = `
+        <h2>${url ? `<a href="${escapeAttr(url)}" target="_blank" rel="noreferrer">${escapeHtml(title)}</a>` : escapeHtml(title)}</h2>
+        <div class="meta">${escapeHtml(facets)}</div>
+        <p>${escapeHtml(text)}${row.text && row.text.length > 320 ? '…' : ''}</p>
+      `;
+      if (rowId) hit.querySelector('.meta').append(' ', similar);
+      return hit;
+    }
+
+    function renderActive() {
+      const bar = document.getElementById('active');
+      const items = [];
+      for (const [field, set] of activeFilters) for (const value of set) items.push([field, value]);
+      if (!items.length) { bar.hidden = true; bar.innerHTML = ''; return; }
+      bar.hidden = false;
+      bar.innerHTML = '<span class="alabel">Filtering</span>' + items.map(([field, value]) =>
+        `<button class="afilter" data-field="${escapeAttr(field)}" data-value="${escapeAttr(value)}" title="Remove this filter">${escapeHtml(humanize(value))} <span aria-hidden="true">✕</span></button>`
+      ).join('') + '<button class="aclear">Clear all</button>';
+      bar.querySelectorAll('.afilter').forEach((b) => { b.onclick = () => toggleFilter(b.dataset.field, b.dataset.value); });
+      bar.querySelector('.aclear').onclick = clearFilters;
+    }
+
+    // The value list for one facet: corpus snapshot by default, overlaid with live
+    // per-search counts when a scan has landed. Values absent from the current match
+    // set are kept (dimmed, count 0) so the option set stays stable and clickable.
+    function valuesFor(field) {
+      const corpus = (facetData[field] && facetData[field].values) || [];
+      const active = activeFilters.get(field) || new Set();
+      if (!liveCounts) {
+        return corpus.map((v) => ({ value: String(v.value), count: v.count, dim: false }));
+      }
+      const live = liveCounts.fields && liveCounts.fields[field];
+      const liveMap = new Map((live || []).map((v) => [String(v.value), v.count]));
+      const names = new Set();
+      const out = [];
+      for (const v of corpus) names.add(String(v.value));
+      for (const v of (live || [])) names.add(String(v.value));
+      for (const value of active) names.add(value);
+      for (const value of names) {
+        out.push({ value, count: liveMap.get(value) || 0, dim: live ? !liveMap.has(value) : false });
+      }
+      out.sort((a, b) => (b.count - a.count) || a.value.localeCompare(b.value));
+      return out.slice(0, 14);
+    }
+
+    function renderRail() {
+      if (!facetData) { rail.innerHTML = ''; return; }
+      const fields = FIELD_ORDER.filter((f) => facetData[f]);
+      for (const f of Object.keys(facetData)) if (!fields.includes(f)) fields.push(f);
+      if (!fields.length) { rail.innerHTML = ''; return; }
+
+      let totalRows = null;
+      let sha = '';
+      const sections = fields.map((field) => {
+        const active = activeFilters.get(field) || new Set();
+        const values = valuesFor(field).map((v) => {
+          const on = active.has(v.value);
+          const cls = ['fval', on ? 'on' : '', v.dim && !on ? 'dim' : ''].filter(Boolean).join(' ');
+          return `<button class="${cls}" data-field="${escapeAttr(field)}" data-value="${escapeAttr(v.value)}" aria-pressed="${on}">`
+            + `<span class="fname">${escapeHtml(humanize(v.value))}</span>`
+            + `<span class="fcount">${Number(v.count).toLocaleString()}</span></button>`;
+        }).join('');
+        const prov = (facetData[field] || {}).provenance || {};
+        if (Number.isFinite(prov.row_count)) totalRows = prov.row_count;
+        if (prov.sha) sha = String(prov.sha).slice(0, 8);
+        return `<section class="facet"><h3>${escapeHtml(FIELD_LABELS[field] || field)}</h3>${values}</section>`;
+      }).join('');
+
+      // Header reflects scope: corpus by default, the live match-count on a search.
+      // A semantic count is a vector-radius estimate, so it's marked approximate (~).
+      let head = 'Filter the corpus';
+      const total = liveCounts && liveCounts.total;
+      const approx = liveCounts && liveCounts.approximate;
+      if (railCounting) head = 'Counting matches…';
+      else if (Number.isFinite(total)) head = `${approx ? '~' : ''}${Number(total).toLocaleString()} matching ${total === 1 ? 'case' : 'cases'}`;
+
+      // Footer is scoped to whatever the rail is showing: the snapshot's corpus
+      // count + sha by default, or a "live via scan" note when per-search counts
+      // are up (so the stale snapshot total never sits next to live match counts).
+      const footParts = [];
+      if (liveCounts) {
+        footParts.push(approx ? 'live counts · semantic radius scan' : 'live counts · Scans API');
+      } else {
+        if (countsNote) footParts.push(countsNote);
+        if (totalRows != null) footParts.push(`${Number(totalRows).toLocaleString()} cases indexed`);
+        if (sha) footParts.push(sha);
+      }
+      const foot = footParts.length ? `<div class="railfoot">${escapeHtml(footParts.join(' · '))}</div>` : '';
+
+      rail.innerHTML = `<div class="railhead${railCounting ? ' counting' : ''}">${escapeHtml(head)}</div>${sections}${foot}`;
+      rail.querySelectorAll('.fval').forEach((b) => { b.onclick = () => toggleFilter(b.dataset.field, b.dataset.value); });
+    }
+
+    async function loadFacets() {
+      try {
+        facetData = await apiJson('/api/facets');
+      } catch (err) {
+        facetData = null;
+      }
+      renderRail();
+    }
+
+    // --- Helpers -----------------------------------------------------------
+
+    async function apiJson(url) {
+      const response = await fetch(url);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || data.message || `HTTP ${response.status}`);
+      }
+      return data;
+    }
+
+    function humanize(value) {
+      const s = String(value).replace(/[_-]+/g, ' ').trim();
+      return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    }
+    function escapeAttr(value) {
+      return escapeHtml(value).replace(/`/g, '&#96;');
     }
   </script>
 </body>

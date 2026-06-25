@@ -40,6 +40,7 @@ spec:
       - age_band
       - diagnosis_category
       - gender
+      - events
     interval: 5m
     retention: never   # 167k notes, a few small fields — keep all history
   scan:

@@ -16,8 +16,8 @@ import re
 
 from hevlayer.udf import udf
 
-# Coarse residual-identifier signals. A real de-id verifier is a trained NER
-# model (e.g. Philter / a clinical de-id model); these regexes are a stub floor.
+# Coarse residual-identifier signals. A production de-id verifier would use a
+# trained NER model; these regexes are the cheap safety floor for the demo.
 _PHI_PATTERNS = [
     re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),            # SSN-shaped
     re.compile(r"\b\d{3}[-.)]\s?\d{3}[-.]\d{4}\b"),  # phone-shaped
@@ -28,8 +28,7 @@ _PHI_PATTERNS = [
 
 @udf(inputs=["id", "text"], output="phi_flag", kind="classification")
 def scan_phi(*, id: str, text: str | None) -> bool:
-    """True if the note appears to carry a residual identifier. STUB regex floor —
-    replace with a clinical de-id NER model for real use."""
+    """True if the note appears to carry a residual identifier."""
     if not text:
         return False
     return any(p.search(text) for p in _PHI_PATTERNS)

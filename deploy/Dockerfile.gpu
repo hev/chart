@@ -1,0 +1,48 @@
+FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04 AS base
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    HF_HOME=/models/huggingface \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_CACHE_DIR=/tmp/uv-cache \
+    UV_LINK_MODE=copy
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      git \
+      python3 \
+      python3-pip \
+      python3-venv \
+    && python3 -m pip install --break-system-packages --no-cache-dir uv==0.9.11 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/chart
+
+# Build context is the chart repo. The editable hevlayer dependency is copied
+# from the sibling checkout through BuildKit:
+#   docker buildx build -f deploy/Dockerfile.gpu --build-context layer_client=../layer/clients/python .
+COPY --from=layer_client . /opt/layer/clients/python
+COPY . /opt/chart
+
+FROM base AS embedder
+ARG PRELOAD_EMBED_MODEL=Snowflake/snowflake-arctic-embed-m-v1.5
+RUN uv sync --frozen \
+    && if [ -n "${PRELOAD_EMBED_MODEL}" ]; then \
+      .venv/bin/python -c 'import os; from huggingface_hub import snapshot_download; snapshot_download(os.environ["PRELOAD_EMBED_MODEL"]); print("preloaded embed model", os.environ["PRELOAD_EMBED_MODEL"])'; \
+    fi \
+    && uv cache clean
+CMD ["uv", "run", "python", "-m", "indexer.embed"]
+
+FROM base AS huggingface-source
+RUN uv sync --frozen && uv cache clean
+CMD ["uv", "run", "python", "-m", "source.huggingface_source"]
+
+FROM base AS classifier
+ARG PRELOAD_EVENTS_MODEL=google/gemma-2-9b-it
+RUN uv sync --extra classifier --frozen \
+    && if [ -n "${PRELOAD_EVENTS_MODEL}" ]; then \
+      .venv/bin/python -c 'import os; from huggingface_hub import snapshot_download; snapshot_download(os.environ["PRELOAD_EVENTS_MODEL"]); print("preloaded events model", os.environ["PRELOAD_EVENTS_MODEL"])'; \
+    fi \
+    && uv cache clean
+CMD ["uv", "run", "python", "-m", "functions.classify_events"]

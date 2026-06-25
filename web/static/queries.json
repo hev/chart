@@ -1,13 +1,13 @@
 {
   "_comment": "The clinical chips — the headline. Each is chosen so the Auto routing badge visibly changes (RFC 0076 § The routing showcase). Token counts map onto RFC 0044's v1 policy: <=2 -> hybrid_text, >=8 -> semantic, else fused. The 'note' is shown in the Routing inspector to teach the router.",
   "examples": [
-    { "text": "metformin 500mg", "note": "drug + dose, 2 tokens -> hybrid_text: exact lexical, typo-tolerant. ANN would add noise on an identifier this short; BM25+fuzzy is the right tool. Never paid for an embedding." },
-    { "text": "CABG", "note": "an abbreviation, 1 token -> hybrid_text. A single clinical identifier is exactly where the keyword/fuzzy route wins and the semantic route flounders." },
-    { "text": "afib", "note": "1 token -> hybrid_text; 'afib'/'AF'/'atrial fibrillation' surface through the fuzzy + FTS legs without an embedding." },
-    { "text": "aspirn", "typo": true, "note": "misspelled, 1 token -> hybrid_text; the fuzzy legs (RFC 0057) still find aspirin notes through the typo — the all-typo query that semantic-only would blank." },
-    { "text": "chest pain radiating to left arm", "note": "a clinical phrase, 5 tokens -> fused: BM25 catches 'chest pain'/'arm', the semantic leg pulls the cardiac picture close, merged by RRF." },
-    { "text": "shortness of breath on exertion", "note": "5 tokens -> fused: lexical leg on the words, semantic leg on the symptom — neither alone is as good as both." },
-    { "text": "elderly woman with progressive dyspnea and bilateral lower-extremity edema", "note": "a clinical picture in prose, 9 tokens -> semantic: ANN over the Arctic embedding, no exact words needed. Returns the heart-failure presentations even when they never say 'dyspnea'." },
-    { "text": "recurrent pneumonia in a young adult with sinus infections", "note": "9 tokens -> semantic: the constellation, not the keywords, is the query. Clusters immunodeficiency presentations a keyword search would miss." }
+    { "text": "metformin 500mg", "expected_route": "hybrid_text", "note": "drug + dose, 2 tokens -> hybrid_text: exact lexical, typo-tolerant. ANN would add noise on an identifier this short; BM25+fuzzy is the right tool. v1 still embeds up front so Auto can execute semantic/fused routes in one hop." },
+    { "text": "CABG", "expected_route": "hybrid_text", "note": "an abbreviation, 1 token -> hybrid_text. A single clinical identifier is exactly where the keyword/fuzzy route wins and the semantic route flounders." },
+    { "text": "afib", "expected_route": "hybrid_text", "note": "1 token -> hybrid_text; 'afib'/'AF'/'atrial fibrillation' surface through the fuzzy + FTS legs." },
+    { "text": "aspirn", "expected_route": "hybrid_text", "typo": true, "note": "misspelled, 1 token -> hybrid_text; the fuzzy legs (RFC 0057) still find aspirin notes through the typo — the all-typo query that semantic-only would blank." },
+    { "text": "chest pain radiating to left arm", "expected_route": "fused", "note": "a clinical phrase, 5 tokens -> fused: BM25 catches 'chest pain'/'arm', the semantic leg pulls the cardiac picture close, merged by RRF." },
+    { "text": "shortness of breath on exertion", "expected_route": "fused", "note": "5 tokens -> fused: lexical leg on the words, semantic leg on the symptom — neither alone is as good as both." },
+    { "text": "elderly woman with progressive dyspnea and bilateral lower-extremity edema", "expected_route": "semantic", "note": "a clinical picture in prose, 9 tokens -> semantic: ANN over the Arctic embedding, no exact words needed. Returns the heart-failure presentations even when they never say 'dyspnea'." },
+    { "text": "recurrent pneumonia in a young adult with sinus infections", "expected_route": "semantic", "note": "9 tokens -> semantic: the constellation, not the keywords, is the query. Clusters immunodeficiency presentations a keyword search would miss." }
   ]
 }

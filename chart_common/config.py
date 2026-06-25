@@ -19,6 +19,10 @@ ARCTIC_QUERY_PREFIX = "Represent this sentence for searching relevant passages: 
 # model silently truncates past it (RFC 0076 § Chunking).
 EMBED_MAX_TOKENS = 512
 
+# Phase-6 target corpus size from PMC-Patients. Kept shared so status, gates, and
+# cost extrapolators use the same row target.
+FULL_CORPUS_NOTES = 167_000
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -42,10 +46,24 @@ class Settings(BaseSettings):
     )
     http_timeout_seconds: float = 60.0
 
+    # Semantic facet counts: a semantic-routed query has no exact "match set" the
+    # way a keyword query does, so the live-count scan (Scans API) counts rows
+    # within a cosine-distance ball of the query vector (an `ann` radius scan),
+    # not a BM25 `fts` predicate. With Arctic's asymmetric query embedding even the
+    # best matches sit near ~0.5 cosine distance, so the ball must open past that;
+    # 0.6 captures a focused, clearly-relevant neighborhood (a few hundred cases on
+    # the demo corpus) rather than the whole index. Approximate by ANN recall.
+    semantic_radius: float = Field(
+        default=0.6, validation_alias="CHART_SEMANTIC_RADIUS"
+    )
+
     # Dataset, pinned to an exact revision (RFC 0053 exact-replay discipline).
     # PMC-Patients: 167k real, de-identified, public case-report notes
-    # (CC-BY-NC-SA-4.0). TODO: pin an exact commit SHA before first publish; the
-    # ReCDS qrels (eval/) must be loaded from the matching revision.
+    # (CC-BY-NC-SA-4.0). ReCDS qrels (eval/) must be loaded from the matching
+    # revision.
     dataset_repo: str = "zhengyun21/PMC-Patients"
-    dataset_revision: str = "main"
+    dataset_revision: str = "28d8836518f86d4f1e6358ea8ec09977023e5766"
     dataset_split: str = "train"
+
+    recds_repo: str = "zhengyun21/PMC-Patients-ReCDS"
+    recds_revision: str = "a27717bb27679cf0860305997685547ca01b3dd1"

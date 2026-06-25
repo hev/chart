@@ -17,27 +17,31 @@ metadata:
   name: chart-classify-events
   namespace: chart
 spec:
+  paused: true                          # unpause only after the full index drains
   targetNamespaces: [chart-notes]
   inputs: [id, text]
-  output: events
   version: v1
   filter: ["events", "Eq", null]      # only notes not yet classified
   triggers: [discovery, write]
   worker:
     # GPU image with vLLM + the Gemma weights cache (the `classifier` extra).
-    image: ghcr.io/hev/chart-classifier:latest
-    batchSize: 16                       # RFC 0068: prefer a batch=True entrypoint —
-                                        # one vLLM forward pass per claim, not 16.
+    image: 186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260624
+    computeClass: gpu
+    batchSize: 16                       # claim size; the worker keeps vLLM resident
+                                        # and patches derived labels via tpuf.
     timeoutSeconds: 1200
-    env:
-      - name: CHART_EVENTS_MODEL
-        value: google/gemma-2-9b-it     # open weights, A10G-fit (RFC 0072)
-      - name: LAYER_GATEWAY_API_KEY
-        valueFrom:
-          secretKeyRef:
-            name: chart-gateway
-            key: LAYER_GATEWAY_API_KEY
-    command: ["uv", "run", "python", "-m", "functions.classify_events"]
+    podSpec:
+      containers:
+        - name: udf
+          command: ["uv", "run", "python", "-m", "functions.classify_events"]
+          env:
+            - name: CHART_EVENTS_MODEL
+              value: google/gemma-2-9b-it     # open weights, A10G-fit (RFC 0072)
+            - name: LAYER_GATEWAY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: chart-gateway
+                  key: LAYER_GATEWAY_API_KEY
   scaling:
     pool: gpu                           # the one Function on the GPU pool
     mode: autoscale

@@ -41,6 +41,14 @@ def _age_band(years: int | None) -> str | None:
     return None
 
 
+def _required(row: dict, *names: str) -> str:
+    for name in names:
+        value = row.get(name)
+        if value is not None and str(value).strip():
+            return str(value)
+    raise KeyError(names[0])
+
+
 @dataclass(slots=True)
 class NoteRecord:
     """One PMC-Patients case-report note → one searchable row.
@@ -64,11 +72,11 @@ class NoteRecord:
 
     @classmethod
     def from_row(cls, row: dict) -> "NoteRecord":
-        pmid = str(row.get("PMID", "")).strip()
+        pmid = str(row.get("PMID") or row.get("pmid") or "").strip()
         years = _years(row.get("age"))
         return cls(
-            id=str(row["patient_uid"]),
-            text=row["patient"],
+            id=_required(row, "patient_uid", "id").strip(),
+            text=_required(row, "patient", "text"),
             title=(row.get("title") or "").strip(),
             pmid=pmid,
             # Deep-link target: the source case report on PubMed (RFC 0076 UX).
@@ -76,8 +84,8 @@ class NoteRecord:
             age=years,
             age_band=_age_band(years),
             gender=row.get("gender"),
-            similar_patient_ids=list((row.get("similar_patients") or {}).keys()),
-            relevant_article_pmids=list((row.get("relevant_articles") or {}).keys()),
+            similar_patient_ids=sorted((row.get("similar_patients") or {}).keys()),
+            relevant_article_pmids=sorted((row.get("relevant_articles") or {}).keys()),
         )
 
     def to_upsert(self) -> dict:
