@@ -130,7 +130,10 @@ Failing or blocked required gates:
 ## Layer handling policy
 
 Do not make Layer/platform changes from this repo unless explicitly asked.
-Record Layer follow-ups in `LAYER_IMPROVEMENTS.md` instead.
+`LAYER_IMPROVEMENTS.md` is fine as a local scratchpad, but it is **not** the
+deliverable: every Layer follow-up must land as a **GitHub issue or RFC on
+`hev/layer`** (the design-preview contract above). A finding that only lives in
+`LAYER_IMPROVEMENTS.md` has not been reported.
 
 Important current Layer notes:
 
