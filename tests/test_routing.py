@@ -1,3 +1,4 @@
+import asyncio
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -159,3 +160,12 @@ def test_demo_chip_expected_routes_are_declared_not_implicit() -> None:
 
     assert all("expected_route" in example for example in examples)
     assert {example["expected_route"] for example in examples} == {"hybrid_text", "fused", "semantic"}
+
+
+def test_healthz_returns_ok() -> None:
+    # The in-cluster Deployment and the ALB target group probe /healthz; a 200
+    # here means lifespan finished (Arctic model resident, gateway client up).
+    response = asyncio.run(search_app.healthz())
+
+    assert response.status_code == 200
+    assert json.loads(response.body) == {"ok": True}

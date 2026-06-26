@@ -1,0 +1,40 @@
+{{- if .Values.ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "chart.fullname" . }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+  annotations:
+    # Join the shared public ALB; the other *.hevlayer.com hosts use this group.
+    alb.ingress.kubernetes.io/group.name: {{ .Values.ingress.group | quote }}
+    alb.ingress.kubernetes.io/group.order: {{ .Values.ingress.groupOrder | quote }}
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80,"HTTPS":443}]'
+    # HTTP->HTTPS redirect so the site is HTTPS-only.
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    {{- with .Values.ingress.tags }}
+    alb.ingress.kubernetes.io/tags: {{ . | quote }}
+    {{- end }}
+    {{- with .Values.ingress.certificateArn }}
+    # Optional override; empty means the wildcard *.hevlayer.com cert on the
+    # shared ALB is auto-discovered from the host rule.
+    alb.ingress.kubernetes.io/certificate-arn: {{ . | quote }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "chart.fullname" . }}-search
+                port:
+                  number: 8080
+{{- end -}}

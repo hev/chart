@@ -1,0 +1,19 @@
+chart serving layer installed in namespace {{ .Release.Namespace }}.
+
+Pods:
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/component=search
+
+Port-forward to verify before DNS:
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "chart.fullname" . }}-search 18080:8080
+  curl localhost:18080/healthz
+  curl 'localhost:18080/api/search?q=metformin%20discontinued'
+
+{{- if .Values.ingress.enabled }}
+
+Shared ALB hostname (point {{ .Values.ingress.host }} at this with a DNS-only CNAME):
+  kubectl get ingress -n {{ .Release.Namespace }} {{ include "chart.fullname" . }} \
+    -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+
+TLS: the wildcard *.hevlayer.com ACM cert on the shared "{{ .Values.ingress.group }}"
+ALB is auto-discovered from the host rule — no certificate-arn needed.
+{{- end }}

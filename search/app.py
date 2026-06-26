@@ -279,4 +279,12 @@ async def config() -> JSONResponse:
     )
 
 
+@app.get("/healthz")
+async def healthz() -> JSONResponse:
+    # Liveness/readiness for the in-cluster Deployment and the ALB target group.
+    # The embedder loads in `lifespan` before uvicorn accepts traffic, so a 200
+    # here means the Arctic model is resident and the gateway client is up.
+    return JSONResponse({"ok": True})
+
+
 app.mount("/", StaticFiles(directory=str(STATIC), html=True), name="static")

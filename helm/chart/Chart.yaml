@@ -1,0 +1,6 @@
+apiVersion: v2
+name: chart
+description: Clinical-notes query-routing demo — in-cluster serving layer (UI + API + Arctic query embedding)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

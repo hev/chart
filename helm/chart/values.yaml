@@ -1,0 +1,81 @@
+# The serving layer only. The ingestion side (chart-ingest / chart-embed-gpu
+# Pipelines, chart-classify-events Function, Warehouse, VectorStore) is owned by
+# the Layer operator via the CRs in deploy/, and the chart-gateway /
+# chart-turbopuffer Secrets already exist in the namespace.
+namespace:
+  # The `chart` namespace already exists (operator-managed). Don't recreate it.
+  create: false
+
+image:
+  # Reuse the existing `mesh` ECR repo with the same chart-* tag convention the
+  # worker images already use (mesh:chart-embedder-*, mesh:chart-classifier-*).
+  repository: 186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh
+  tag: chart-search-20260625
+  pullPolicy: Always
+
+imagePullSecrets: []
+
+replicaCount: 1
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+layer:
+  # In-cluster gateway (ClusterIP layer-gateway.layer:8080), not the public URL.
+  gatewayUrl: http://layer-gateway.layer.svc.cluster.local:8080
+
+# Non-secret env injected via ConfigMap. The Settings model (chart_common/config.py)
+# reads these; LAYER_GATEWAY_API_KEY comes from the existing Secret below.
+config:
+  CHART_NAMESPACE: chart-notes
+  CHART_EMBED_MODEL: Snowflake/snowflake-arctic-embed-m-v1.5
+  CHART_SEMANTIC_RADIUS: "0.6"
+  # The Arctic weights are baked into the image, so run the model stack offline.
+  HF_HOME: /opt/model-cache
+  HF_HUB_OFFLINE: "1"
+  TRANSFORMERS_OFFLINE: "1"
+
+secrets:
+  # Reuse the existing Secret; it holds LAYER_GATEWAY_API_KEY (the deriveFromStore
+  # gateway key). This chart does not create or own it.
+  existingSecret: chart-gateway
+
+ingress:
+  enabled: true
+  className: alb
+  host: chart.hevlayer.com
+  # Join the shared public ALB (group "hev-public") that already fronts the other
+  # *.hevlayer.com hosts (dashboard.hevlayer.com, aws-us-east-1.hevlayer.com, the
+  # hev-shop hosts). The wildcard *.hevlayer.com ACM cert already on that ALB's
+  # 443 listener is auto-discovered from the host rule, so no certificate-arn is
+  # needed. group.order just sequences rules on the shared ALB; 10/11/20/30/31
+  # are taken, so chart uses 40.
+  group: hev-public
+  groupOrder: 40
+  tags: hev=public
+  # Leave empty to auto-discover the wildcard cert (matches the other hosts).
+  # Set only to pin a specific ACM cert ARN.
+  certificateArn: ""
+
+# Search is the baseline serving path: pin it to the always-on system node so no
+# worker/GPU node has to spin up to serve queries (mirrors ../shop's search).
+nodeSelector:
+  layer.hev.dev/node-role: system
+tolerations:
+  - key: layer.hev.dev/node-role
+    operator: Equal
+    value: system
+    effect: NoSchedule
+
+# Request enough for torch + the Arctic working set and image-disk headroom.
+resources:
+  requests:
+    cpu: 500m
+    memory: 2Gi
+    ephemeral-storage: 8Gi
+  limits:
+    cpu: "2"
+    memory: 3Gi
