@@ -135,6 +135,10 @@ Record Layer follow-ups in `LAYER_IMPROVEMENTS.md` instead.
 Important current Layer notes:
 
 - Images should be pushed to ECR, not GHCR.
+- Layer findings go to **GitHub issues / RFCs on `hev/layer`, never Linear** —
+  the Linear MCP is connected, so it gets reached for by reflex, but tickets
+  logged there miss the paper trail and have had to be re-filed as GH issues and
+  deleted from Linear.
 - Local cost measurement is not needed; Layer cost reporting is authoritative.
 - Depot account details are available in `../layer`.
 - Avoid manual scaling as a project behavior; Layer should own autoscaling once
