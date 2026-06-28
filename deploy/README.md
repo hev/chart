@@ -142,9 +142,6 @@ scripts/phase6_unpause_embed.sh          # status only
 CHART_K8S_CONTEXT_CONFIRM="$(kubectl config current-context)" \
 CHART_ACCEPT_PHASE6_EMBED_COST=1 \
 scripts/phase6_unpause_embed.sh --yes
-scripts/phase6_prepare_embed_drain.sh --status
-CHART_K8S_CONTEXT_CONFIRM="$(kubectl config current-context)" \
-scripts/phase6_prepare_embed_drain.sh --yes
 scripts/full_status.sh
 scripts/gate_report.sh
 scripts/gate_report.sh --require-complete
@@ -166,38 +163,12 @@ and dollar checks. Override the target with `CHART_K8S_NAMESPACE` and
 It writes `CHART_PHASE6_UNPAUSE_REPORT` with the target Pipeline, budget report,
 final status, and any refusal `error`.
 
-Layer should own worker scale-up/down through its Pipeline `ScaledObject`s. The
-window scripts below are a temporary Phase-6 backfill workaround for the current
-cluster state where `scripts/full_status.sh` reports the Layer-managed
-`chart-ingest-worker` and `chart-embed-gpu-worker` ScaledObjects as not ready
-because KEDA bearer auth is generated with an empty token. Keep platform
-follow-ups in `../LAYER_IMPROVEMENTS.md`; do not treat manual `kubectl scale` as
-the intended steady-state operating model.
-
-When that autoscaling issue is present, the full run can still drain in bounded
-windows: let `chart-ingest-worker` stage work, then pause it before the GPU
-embedder drains the pending queue. The gateway claim path uses
-`FOR UPDATE SKIP LOCKED`; a continuously staging source worker can hold segment
-locks long enough for claim checks to return no work while pending rows exist.
-`scripts/phase6_prepare_embed_drain.sh --yes` scales `chart-ingest-worker` to
-zero, clears stale idle pipeline-segment transactions, and verifies a
-claim/release probe before the embedder drains. It writes
-`CHART_PHASE6_DRAIN_REPORT`.
-
-Stage the next source window only after the pending queue drains:
-
-```bash
-CHART_PHASE6_SOURCE_START_OFFSET=302 \
-CHART_PHASE6_SOURCE_MAX_ROWS=1000 \
-CHART_K8S_CONTEXT_CONFIRM="$(kubectl config current-context)" \
-scripts/phase6_stage_source_window.sh --yes
-```
-
-The staging helper sets the source worker offset/window env, scales
-`chart-ingest-worker` to one replica, and refuses to start when pending pipeline
-documents already exist unless `CHART_PHASE6_ALLOW_STAGE_WITH_PENDING=1` is set.
-After it stages the window, run `scripts/phase6_prepare_embed_drain.sh --yes`
-again before letting the GPU embedder drain.
+Layer owns worker scale-up/down through its Pipeline `ScaledObject`s. The source
+and GPU embed Pipelines share `pipelineId: chart-notes`; the gateway stages rows
+without taking a blanket lock over already-staged manifests, so the embed worker
+can claim committed pending rows while source staging continues. The GPU embed
+Pipeline sets `scaling.warmWindowSeconds` so adjacent batches reuse the warm pod
+and node before the pool returns to zero.
 
 `scripts/full_status.sh` also records the accepted embed/classifier cost baseline
 reports and estimates in `CHART_PHASE6_STATUS_REPORT`. It also records the

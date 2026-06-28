@@ -123,22 +123,22 @@ def _read(value: Any, name: str, default: Any = None) -> Any:
 def count_selector(
     *, query: str | None = None, vector: list[float] | None = None, radius: float | None = None
 ) -> dict[str, Any]:
-    """The Scans API selector that defines a search's match set:
-      - keyword/fused query → an exact BM25 `fts` predicate over the text field;
+    """The Scans API selector that defines a search's match set, following the
+    gateway's own routing decision:
+      - keyword/fused query → a `hybrid_text` selector: the BM25 leg plus one
+        per-token fuzzy leg, the same expansion the `hybrid_text`/`fused` route
+        ranks (RFC 0057). Exact — and, unlike a plain `fts` count, it counts the
+        fuzzy/typo-surfaced matches (afib, aspirn, CABG) the route retrieves;
       - semantic query → an `ann` ball of `radius` (cosine distance) around the
         query vector, since semantic relevance has no exact lexical match set.
         Approximate by ANN recall.
     A request carries at most one ranked selector; vector+radius wins over query.
-
-    Gap: the `fts` selector is exact BM25 only — it cannot mirror the `hybrid_text`
-    route's per-token fuzzy legs (RFC 0057), so a fuzzy/typo-surfaced query (afib,
-    aspirn) the route retrieves counts as zero here. The UI guards against the
-    resulting "count < hits shown" contradiction by withholding the live count; the
-    real fix is a fuzzy-aware scan selector (see LAYER_IMPROVEMENTS.md)."""
+    The caller supplies vector+radius only for the semantic route, so a query
+    without them is the keyword/fused route and counts via `hybrid_text`."""
     if vector is not None and radius is not None:
         return {"ann": {"field": "vector", "vector": vector, "radius": radius}}
     if query:
-        return {"fts": {"field": "text", "query": query}}
+        return {"hybrid_text": {"field": "text", "query": query}}
     return {}
 
 

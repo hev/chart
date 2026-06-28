@@ -22,9 +22,8 @@ Layer team is the deliverable.
 **Operations are Layer's job.** This repo has operational access to the shared
 Layer cluster, but the goal is that Layer operates *itself* — autoscaling,
 scale-to-zero, scheduling, binpacking. Let it. Do **not** hand-tune what Layer is
-meant to manage. (This supersedes the older "record follow-ups in
-`LAYER_IMPROVEMENTS.md`" note below: that log is fine as a scratchpad, but the
-*deliverable* is a GH issue or RFC on `hev/layer`.)
+meant to manage. The *deliverable* of any friction is a GH issue (bug) or an RFC
+(capability gap) on `hev/layer` — never a local feedback log.
 
 - When Layer falls short — autoscaling lags, a pipeline stalls, scale-to-zero
   misbehaves — it is OK to **intervene** to keep the demo healthy. But every
@@ -44,7 +43,7 @@ or RFC) so the design-preview signal reaches the Layer team.
 
 The chart repo-side implementation is in place, including the local search app,
 pipeline audit tooling, preflight/final-gate checks, Phase 4 guarded event smoke
-helper, Phase 6 status reporting, and the Layer improvements log.
+helper, and Phase 6 status reporting.
 
 The project is not complete end-to-end yet. The current final gate is blocked by
 external Layer/runtime state rather than by a known local code task.
@@ -121,19 +120,39 @@ Failing or blocked required gates:
   status was still partial.
 - The Phase 4 event facet smoke requires a Linux host with the classifier extra
   available, including vLLM/transformers runtime support.
-- Layer-managed KEDA autoscaling is not ready because the generated bearer auth
-  reference points at a missing or empty `chart/layer` secret key
-  `turbopuffer-api-key`.
 - The `chart-classify-events` Kubernetes Function exists and is paused, but the
-  gateway UDF status endpoint reports the UDF as missing.
+  gateway UDF status endpoint reports the UDF as missing (`hev/layer#99`); the
+  `events`/`specialty`/`diagnosis_category` facets stay empty until the classifier
+  backfill runs.
 
 ## Layer handling policy
 
 Do not make Layer/platform changes from this repo unless explicitly asked.
-`LAYER_IMPROVEMENTS.md` is fine as a local scratchpad, but it is **not** the
-deliverable: every Layer follow-up must land as a **GitHub issue or RFC on
-`hev/layer`** (the design-preview contract above). A finding that only lives in
-`LAYER_IMPROVEMENTS.md` has not been reported.
+Every Layer follow-up lands as a **GitHub issue (bug) or RFC (capability gap) on
+`hev/layer`** (the design-preview contract above) — there is no local feedback
+log. A finding that is not an issue or RFC on `hev/layer` has not been reported.
+
+Open Layer follow-ups from chart:
+
+- `hev/layer#99` — paused Function is unobservable (UDF status 404); root cause of
+  the empty `events`/`specialty`/`diagnosis_category` facets, which stay empty
+  until the classifier backfill runs.
+- `hev/layer#101` — `scaling.warmWindowSeconds` documented on the API page but
+  missing from the CRD reference (`scaling-crd`/`pipeline-crd`/`function-crd`).
+
+Landed / consumed (kept for traceability):
+
+- `hev/layer#100` (KEDA empty bearer token) — fixed and deployed; Layer now owns
+  autoscaling, so manual `kubectl scale` is no longer a project behavior.
+- `hev/layer#94` (cursor pagination for routed/fused queries) — shipped
+  (`52a31d8`); enables a future move from client-side to server-side pagination.
+- RFC 0081 P1 (pipeline claim-check coordination) — landed; staging no longer
+  blanket-locks already-staged rows, so source + embed run concurrently (the
+  external windowing loop is retired).
+- RFC 0082 K1 (`warmWindowSeconds`) — landed and consumed on the GPU embed
+  Pipeline (`deploy/pipeline-embed.yaml`); the classifier `Function` still needs it.
+- Scans API `hybrid_text` selector (`hev/layer` `ed86668`) — chart counts the
+  keyword/fused route faithfully.
 
 Important current Layer notes:
 
@@ -144,8 +163,8 @@ Important current Layer notes:
   deleted from Linear.
 - Local cost measurement is not needed; Layer cost reporting is authoritative.
 - Depot account details are available in `../layer`.
-- Avoid manual scaling as a project behavior; Layer should own autoscaling once
-  the KEDA bearer-auth issue is fixed.
+- Avoid manual scaling as a project behavior; Layer owns autoscaling now that the
+  KEDA bearer-auth issue (`hev/layer#100`) is fixed and deployed.
 
 ## Useful commands
 

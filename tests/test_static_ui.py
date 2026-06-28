@@ -86,6 +86,26 @@ def test_static_ui_facets_are_clickable_filters_that_narrow_the_search() -> None
     assert "Clear all" in source
 
 
+def test_static_ui_renders_facet_prevalence_bars() -> None:
+    source = INDEX.read_text()
+
+    # Each facet value carries a prevalence bar, sized as its share of the facet's
+    # most common value, so a cohort's distribution reads at a glance.
+    assert ".fbar {" in source
+    assert 'class="fbar"' in source
+    assert 'style="width:${pct.toFixed(1)}%"' in source
+    assert "rows.reduce((m, v) => Math.max(m, Number(v.count) || 0), 0)" in source
+
+
+def test_static_ui_hides_empty_facet_sections() -> None:
+    source = INDEX.read_text()
+
+    # UDF-writeback facets (events / specialty / diagnosis) render nothing until the
+    # enrichment cascade populates them, instead of showing a bare empty heading.
+    assert "const hasContent = (f) =>" in source
+    assert "ordered.filter(hasContent)" in source
+
+
 def test_static_ui_surfaces_declared_chip_expected_route() -> None:
     source = INDEX.read_text()
 

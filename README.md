@@ -207,8 +207,8 @@ Phase-6 cost-gated operation; use a bounded `--limit` for smoke work, and only s
 `CHART_ALLOW_FULL_CPU_INDEX=1` after accepting the full-index cost path.
 The production full-index path is `deploy/pipeline-embed.yaml`, which runs
 `python -m indexer.embed` on the GPU pool after the Phase-6 gate is accepted.
-Use `scripts/phase6_prepare_embed_drain.sh` to pause source staging and verify
-the pending queue is claimable before the GPU embedder drains it.
+Layer owns source and embed scaling; the GPU embed Pipeline declares a warm
+window so adjacent batches reuse the same warm node before returning to zero.
 
 The Gemma cascade (`functions/`) and the ReCDS eval (`eval/`) are GPU- and
 gateway-bound respectively; see their READMEs. The local seams are covered by

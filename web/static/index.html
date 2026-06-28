@@ -39,9 +39,15 @@
     .fval.dim { opacity:.4; }
     .rail h3 { font-size:.78rem; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); margin:.85rem 0 .15rem; }
     .rail .facet:first-of-type h3 { margin-top:0; }
-    .fval { display:flex; justify-content:space-between; align-items:baseline; gap:.5rem; width:100%; text-align:left; border:none; background:none; color:var(--ink); padding:.22rem .35rem; border-radius:6px; font-size:.88rem; cursor:pointer; font-family:inherit; }
+    .fval { position:relative; display:flex; justify-content:space-between; align-items:baseline; gap:.5rem; width:100%; text-align:left; border:none; background:none; color:var(--ink); padding:.22rem .35rem; border-radius:6px; font-size:.88rem; cursor:pointer; font-family:inherit; }
     .fval:hover { background:#f1f5fb; }
     .fval.on { background:var(--accent-bg); color:var(--accent); font-weight:600; }
+    /* Prevalence bar: a track behind each value, width ∝ its share of the facet's
+       most common value, so you can eyeball how a cohort distributes at a glance. */
+    .fbar { position:absolute; left:0; top:1px; bottom:1px; min-width:2px; background:rgba(33,86,214,.10); border-radius:5px; z-index:0; pointer-events:none; transition:width .18s ease; }
+    .fval.on .fbar { background:rgba(33,86,214,.22); }
+    .fval.dim .fbar { display:none; }
+    .fname, .fcount { position:relative; z-index:1; }
     .fname { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .fcount { color:var(--muted); font-size:.78rem; font-variant-numeric:tabular-nums; }
     .fval.on .fcount { color:var(--accent); }
@@ -231,17 +237,14 @@
         const data = await apiJson(url);
         if (seq !== countsSeq) return; // a newer search already superseded this one
         // Honesty invariant: a match-total can never be smaller than the hits already
-        // on screen. When it is, the Scans selector under-counts what the route
-        // retrieved — the hybrid_text route ranks BM25 + per-token fuzzy legs (RFC
-        // 0057), but the Scans API only exposes an exact-BM25 `fts` selector, so a
-        // fuzzy/typo-surfaced match (afib, aspirn) is found by the route yet counted
-        // as zero. Rather than print a total that contradicts the visible results,
-        // withhold the live counts and keep the corpus rail. The same selector backs
-        // the per-facet scans, so they're withheld together. See LAYER_IMPROVEMENTS.md
-        // ("Scans API has no hybrid_text/fuzzy selector").
+        // on screen. The keyword/fused route now counts via the `hybrid_text` scan
+        // selector (BM25 + per-token fuzzy) and semantic via an `ann` ball, so the
+        // count mirrors what the route retrieved. This stays as a cheap safety net:
+        // if a selector ever under-counts (e.g. a fused hit surfaced only by the
+        // semantic leg), keep the corpus rail rather than print a contradiction.
         if (Number.isFinite(data.total) && data.total < allRows.length) {
           liveCounts = null;
-          countsNote = 'Live counts need a fuzzy-aware scan — showing corpus totals';
+          countsNote = 'Showing corpus totals';
         } else {
           liveCounts = data;
         }
@@ -391,18 +394,30 @@
 
     function renderRail() {
       if (!facetData) { rail.innerHTML = ''; return; }
-      const fields = FIELD_ORDER.filter((f) => facetData[f]);
-      for (const f of Object.keys(facetData)) if (!fields.includes(f)) fields.push(f);
+      // Drop facets with nothing to show — e.g. the UDF-writeback fields (events,
+      // specialty, diagnosis) before the enrichment cascade has populated them — so
+      // the rail never renders a bare, empty heading. A field reappears on its own
+      // once it has values; an actively-filtered field is kept so it stays clearable.
+      const hasContent = (f) => valuesFor(f).length > 0 || ((activeFilters.get(f) || new Set()).size > 0);
+      const ordered = FIELD_ORDER.filter((f) => facetData[f]);
+      for (const f of Object.keys(facetData)) if (!ordered.includes(f)) ordered.push(f);
+      const fields = ordered.filter(hasContent);
       if (!fields.length) { rail.innerHTML = ''; return; }
 
       let totalRows = null;
       let sha = '';
       const sections = fields.map((field) => {
         const active = activeFilters.get(field) || new Set();
-        const values = valuesFor(field).map((v) => {
+        const rows = valuesFor(field);
+        // Bar width is each value's share of the facet's most common value, so the
+        // leader fills the track and the rest read as relative prevalence at a glance.
+        const max = rows.reduce((m, v) => Math.max(m, Number(v.count) || 0), 0) || 1;
+        const values = rows.map((v) => {
           const on = active.has(v.value);
           const cls = ['fval', on ? 'on' : '', v.dim && !on ? 'dim' : ''].filter(Boolean).join(' ');
+          const pct = Math.max(0, Math.min(100, (Number(v.count) || 0) / max * 100));
           return `<button class="${cls}" data-field="${escapeAttr(field)}" data-value="${escapeAttr(v.value)}" aria-pressed="${on}">`
+            + `<span class="fbar" style="width:${pct.toFixed(1)}%"></span>`
             + `<span class="fname">${escapeHtml(humanize(v.value))}</span>`
             + `<span class="fcount">${Number(v.count).toLocaleString()}</span></button>`;
         }).join('');

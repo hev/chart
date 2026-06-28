@@ -17,7 +17,7 @@ metadata:
   name: chart-classify-events
   namespace: chart
 spec:
-  paused: true                          # unpause only after the full index drains
+  paused: false                         # Layer owns scale-to-zero; filter resumes safely
   targetNamespaces: [chart-notes]
   inputs: [id, text]
   version: v1
@@ -45,4 +45,5 @@ spec:
   scaling:
     pool: gpu                           # the one Function on the GPU pool
     mode: autoscale
+    warmWindowSeconds: 600
     replicas: { min: 0, max: 2 }        # scale-to-zero; bursts on backfill

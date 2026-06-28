@@ -140,11 +140,14 @@ def test_worker_and_python_backends_share_facet_counts_scan_contract() -> None:
     assert '@app.get("/api/facet-counts")' in app_py
 
     # …backed by the Scans API: a count-mode scan for the matching total and a
-    # values-mode scan per facet, both with an `fts` selector over the text field.
+    # values-mode scan per facet. The keyword/fused route counts via the
+    # `hybrid_text` selector (BM25 + per-token fuzzy), so the fuzzy/typo matches the
+    # route surfaces are counted, not missed by an exact-BM25 `fts`.
     assert 'mode: "count"' in source and 'mode: "values"' in source
     assert '/v2/namespaces/${encodeURIComponent(namespace(env))}/scans' in source
     assert '"mode": "count"' in gateway_py and '"mode": "values"' in gateway_py
-    assert '{"field": "text", "query": query}' in gateway_py
+    assert '{ hybrid_text: { field: "text", query } }' in source
+    assert '{"hybrid_text": {"field": "text", "query": query}}' in gateway_py
 
 
 def test_worker_and_python_backends_count_semantic_queries_with_a_vector_radius() -> None:
@@ -154,7 +157,7 @@ def test_worker_and_python_backends_count_semantic_queries_with_a_vector_radius(
     config_py = (WORKER.parent.parent / "chart_common" / "config.py").read_text()
 
     # A semantic query has no exact lexical match set, so its count is an `ann`
-    # radius ball around the query vector; keyword/fused stays exact `fts`.
+    # radius ball around the query vector; keyword/fused counts via `hybrid_text`.
     assert '{ ann: { field: "vector", vector, radius } }' in source
     assert '{"ann": {"field": "vector", "vector": vector, "radius": radius}}' in gateway_py
 

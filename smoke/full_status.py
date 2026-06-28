@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from hevlayer.client import HevlayerError
+from pydantic import ValidationError
 
 from chart_common.config import FULL_CORPUS_NOTES, Settings
 from chart_common.gateway import FACET_FIELDS, close_client, latest_facets, make_client, require_gateway_key
@@ -65,7 +66,33 @@ async def pipeline_status(layer, pipeline_id: str) -> dict[str, Any]:
         status = await layer.get_pipeline_status(pipeline_id)
     except HevlayerError as exc:
         return {"pipeline_id": pipeline_id, "error": {"status_code": exc.status_code, "message": exc.message}}
+    except ValidationError as exc:
+        raw = await _raw_pipeline_status(layer, pipeline_id)
+        if raw:
+            raw.setdefault("pipeline_id", pipeline_id)
+            raw["schema_error"] = str(exc)
+            return raw
+        return {
+            "pipeline_id": pipeline_id,
+            "error": {
+                "status_code": None,
+                "message": f"pipeline status response did not match client schema: {exc}",
+            },
+        }
     return _status_body(status, id_field="pipeline_id", expected_id=pipeline_id)
+
+
+async def _raw_pipeline_status(layer, pipeline_id: str) -> dict[str, Any] | None:
+    client = getattr(layer, "_client", None)
+    if client is None:
+        return None
+    try:
+        response = await client.get(f"/v2/pipelines/{pipeline_id}/status")
+        response.raise_for_status()
+        data = response.json()
+    except Exception:
+        return None
+    return data if isinstance(data, dict) else None
 
 
 async def udf_status(layer, udf_id: str) -> dict[str, Any]:

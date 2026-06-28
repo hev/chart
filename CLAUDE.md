@@ -25,9 +25,8 @@ Layer team is the deliverable.
 **Operations are Layer's job.** This repo has operational access to the shared
 Layer cluster, but the goal is that Layer operates *itself* — autoscaling,
 scale-to-zero, scheduling, binpacking. Let it. Do **not** hand-tune what Layer is
-meant to manage. (This supersedes the older "record follow-ups in
-`LAYER_IMPROVEMENTS.md`" note: that log is fine as a scratchpad, but the
-*deliverable* is a GH issue or RFC on `hev/layer`.)
+meant to manage. The *deliverable* of any friction is a GH issue (bug) or an RFC
+(capability gap) on `hev/layer` — never a local feedback log.
 
 - When Layer falls short — autoscaling lags, a pipeline stalls, scale-to-zero
   misbehaves — it is OK to **intervene** to keep the demo healthy. But every
@@ -83,7 +82,7 @@ the gateway. `hevlayer` client sourced editable from `../layer/clients/python`.
 Implemented from RFC 0076 through the local/demo seams: routed FastAPI search,
 live static UI calls, pinned PMC/ReCDS revisions, ReCDS loading/scoring, and the
 Gemma cascade body with `tpuf` multi-write for derived labels. Full-index GPU
-embedding is represented by `indexer/embed.py` + `deploy/pipeline-embed.yaml`,
-paused until the Phase-6 gate. Remaining proof is environmental: live gateway
-index/query/facet smoke, GPU classifier smoke/cost, and the gated full
-index/classify runs.
+embedding runs from `indexer/embed.py` + `deploy/pipeline-embed.yaml` (unpaused;
+`warmWindowSeconds` keeps the GPU warm across adjacent batches). Remaining proof is
+environmental: live gateway index/query/facet smoke, GPU classifier smoke/cost,
+and the gated full index/classify runs.

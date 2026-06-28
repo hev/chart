@@ -26,7 +26,7 @@ spec:
   target:
     namespace: chart-notes
   worker:
-    image: 186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-huggingface-source-plan-20260624-concurrent
+    image: 186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-huggingface-source-plan-20260626-httpx2
     computeClass: cpu
     timeoutSeconds: 7200
     podSpec:
@@ -41,6 +41,12 @@ spec:
                   key: LAYER_GATEWAY_API_KEY
             - name: CHART_HF_SOURCE_WRITE_CONCURRENCY
               value: "4"
+            - name: CHART_HF_SOURCE_PAGE_SIZE
+              value: "25"
+            - name: CHART_HF_SOURCE_START_OFFSET
+              value: "0"
+            - name: CHART_HF_SOURCE_MAX_ROWS
+              value: "0"
   sourceRef:
     kind: huggingface
     warehouseRef: pmc-patients-hub

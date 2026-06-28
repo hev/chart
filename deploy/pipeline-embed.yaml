@@ -4,8 +4,9 @@
 # Pipeline shares `pipelineId: chart-notes`, claims pending documents, embeds
 # chunks with Snowflake/snowflake-arctic-embed-m-v1.5 on the GPU pool, and writes
 # vectors through `put_pipeline_document_vectors`. This manifest is unpaused
-# after the Phase-6 full-index cost gate is accepted; drain source batches with
-# scripts/phase6_prepare_embed_drain.sh so claims are not starved by staging.
+# after the Phase-6 full-index cost gate is accepted. Layer owns source and
+# embed scaling; `warmWindowSeconds` keeps the GPU pod/node warm across adjacent
+# batches before the pool returns to zero.
 apiVersion: hevlayer.com/v1alpha1
 kind: Pipeline
 metadata:
@@ -17,7 +18,7 @@ spec:
   target:
     namespace: chart-notes
   worker:
-    image: 186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260624-dedupe2
+    image: 186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1
     computeClass: gpu
     batchSize: 1
     timeoutSeconds: 7200
@@ -29,9 +30,9 @@ spec:
             - name: CHART_EMBED_MODEL
               value: Snowflake/snowflake-arctic-embed-m-v1.5
             - name: CHART_EMBED_CLAIM_SIZE
-              value: "1"
+              value: "64"
             - name: CHART_EMBED_BATCH_SIZE
-              value: "1"
+              value: "32"
             - name: CHART_EMBED_SIMILAR_QRELS_SPLIT
               value: train
             - name: LAYER_GATEWAY_API_KEY
@@ -42,6 +43,7 @@ spec:
   scaling:
     pool: gpu
     mode: autoscale
+    warmWindowSeconds: 600
     replicas:
       min: 0
       max: 1

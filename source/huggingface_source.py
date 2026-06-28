@@ -91,38 +91,51 @@ def _direct_json_url(source: dict[str, Any]) -> str:
 
 
 def _stream_json_array(source: dict[str, Any], *, offset: int) -> Iterable[dict[str, Any]]:
+    timeout = float(os.environ.get("CHART_HF_SOURCE_TIMEOUT_SECONDS", "60"))
+    url = _direct_json_url(source)
+    with httpx.stream("GET", url, timeout=timeout, follow_redirects=True) as response:
+        response.raise_for_status()
+        yield from _iter_json_array_rows(
+            (chunk.decode("utf-8") for chunk in response.iter_bytes(chunk_size=1024 * 1024)),
+            offset=offset,
+        )
+
+
+def _iter_json_array_rows(chunks: Iterable[str], *, offset: int = 0) -> Iterable[dict[str, Any]]:
     decoder = json.JSONDecoder()
     buffer = ""
     index = 0
-    url = _direct_json_url(source)
-    with urllib.request.urlopen(url, timeout=float(os.environ.get("CHART_HF_SOURCE_TIMEOUT_SECONDS", "60"))) as response:
+    closed = False
+    max_buffer_bytes = int(os.environ.get("CHART_HF_SOURCE_MAX_BUFFER_BYTES", str(32 * 1024 * 1024)))
+    for chunk in chunks:
+        buffer += chunk
+        if len(buffer.encode("utf-8")) > max_buffer_bytes:
+            raise RuntimeError(f"JSON stream parser buffer exceeded {max_buffer_bytes} bytes")
         while True:
-            chunk = response.read(1024 * 1024)
-            if not chunk:
+            buffer = buffer.lstrip()
+            if not buffer:
                 break
-            buffer += chunk.decode("utf-8")
-            while True:
-                buffer = buffer.lstrip()
-                if not buffer:
-                    break
-                if buffer[0] in "[,":
-                    buffer = buffer[1:]
-                    continue
-                if buffer[0] == "]":
-                    return
-                try:
-                    row, end = decoder.raw_decode(buffer)
-                except json.JSONDecodeError:
-                    # Need more bytes for the current object.
-                    break
-                buffer = buffer[end:]
-                if isinstance(row, dict):
-                    if index >= offset:
-                        yield row
-                    index += 1
-        trailing = buffer.strip()
-        if trailing and trailing != "]":
-            raise RuntimeError("unterminated JSON array from Hugging Face dataset file")
+            if buffer[0] in "[,":
+                buffer = buffer[1:]
+                continue
+            if buffer[0] == "]":
+                closed = True
+                return
+            try:
+                row, end = decoder.raw_decode(buffer)
+            except json.JSONDecodeError:
+                # Need more bytes for the current object.
+                break
+            buffer = buffer[end:]
+            if isinstance(row, dict):
+                if index >= offset:
+                    yield row
+                index += 1
+    trailing = buffer.strip()
+    if trailing == "]":
+        closed = True
+    if not closed:
+        raise RuntimeError("unterminated JSON array from Hugging Face dataset file")
 
 
 def _chunks_for_text(doc_id: str, text: str, attributes: dict[str, Any], chunk: dict[str, Any]) -> list[dict[str, Any]]:
@@ -202,10 +215,19 @@ async def _ensure_pipeline(layer: Any, *, pipeline_id: str, target_namespace: st
 async def _put_chunks_with_retry(layer: Any, pipeline_id: str, doc_id: str, chunks: list[dict[str, Any]]) -> None:
     attempts = int(os.environ.get("CHART_HF_SOURCE_WRITE_ATTEMPTS", "5"))
     delay = float(os.environ.get("CHART_HF_SOURCE_WRITE_RETRY_SECONDS", "2"))
+    timeout = float(os.environ.get("CHART_HF_SOURCE_WRITE_TIMEOUT_SECONDS", "60"))
     for attempt in range(1, attempts + 1):
         try:
-            await layer.put_pipeline_document_chunks(pipeline_id, doc_id, {"chunks": chunks})
+            await asyncio.wait_for(
+                layer.put_pipeline_document_chunks(pipeline_id, doc_id, {"chunks": chunks}),
+                timeout=timeout,
+            )
             return
+        except TimeoutError:
+            if attempt == attempts:
+                raise
+            _log(f"transient gateway timeout staging {doc_id}; retry {attempt}/{attempts}")
+            await asyncio.sleep(delay * attempt)
         except HevlayerError as exc:
             if attempt == attempts or exc.status_code not in {429, 500, 502, 503, 504}:
                 raise

@@ -192,6 +192,7 @@ async def run_once(ctx: EmbedContext) -> int:
     fail: list[str] = []
     complete = 0
     try:
+        payloads: dict[str, tuple[list[str], list[dict[str, Any]]]] = {}
         for doc_id in doc_ids:
             try:
                 chunks = await ctx.layer.get_pipeline_document_chunks(ctx.embed_settings.pipeline_id, doc_id)
@@ -202,20 +203,40 @@ async def run_once(ctx: EmbedContext) -> int:
                 )
                 if not texts:
                     fail.append(doc_id)
+                    active.discard(doc_id)
                     continue
-                entries: list[VectorEntry] = []
-                for start in range(0, len(texts), ctx.embed_settings.embed_batch_size):
-                    end = start + ctx.embed_settings.embed_batch_size
-                    vectors = await asyncio.to_thread(ctx.embedder.embed_passages, texts[start:end])
-                    entries.extend(
-                        vector_entries(
-                            doc_id,
-                            texts[start:end],
-                            attrs[start:end],
-                            vectors,
-                            total_vectors=len(texts),
-                        )
-                    )
+                payloads[doc_id] = (texts, attrs)
+            except Exception:
+                logger.exception("failed to load document chunks", extra={"doc_id": doc_id})
+                release.append(doc_id)
+                active.discard(doc_id)
+
+        vectors_by_doc: dict[str, list[list[float]]] = {doc_id: [] for doc_id in payloads}
+        flat: list[tuple[str, str]] = [
+            (doc_id, text)
+            for doc_id, (texts, _attrs) in payloads.items()
+            for text in texts
+        ]
+        for start in range(0, len(flat), ctx.embed_settings.embed_batch_size):
+            end = start + ctx.embed_settings.embed_batch_size
+            batch = flat[start:end]
+            try:
+                vectors = await asyncio.to_thread(ctx.embedder.embed_passages, [text for _doc_id, text in batch])
+            except Exception:
+                logger.exception("failed to embed batch", extra={"batch_size": len(batch)})
+                for doc_id, _text in batch:
+                    if doc_id not in release:
+                        release.append(doc_id)
+                continue
+            for (doc_id, _text), vector in zip(batch, vectors, strict=True):
+                vectors_by_doc[doc_id].append(vector)
+
+        for doc_id, (texts, attrs) in payloads.items():
+            try:
+                vectors = vectors_by_doc[doc_id]
+                if len(vectors) != len(texts):
+                    raise RuntimeError(f"{doc_id}: embedded {len(vectors)} of {len(texts)} chunks")
+                entries = vector_entries(doc_id, texts, attrs, vectors, total_vectors=len(texts))
                 await ctx.layer.put_pipeline_document_vectors(
                     ctx.embed_settings.pipeline_id,
                     doc_id,
@@ -223,7 +244,7 @@ async def run_once(ctx: EmbedContext) -> int:
                 )
                 complete += 1
             except Exception:
-                logger.exception("failed to embed document", extra={"doc_id": doc_id})
+                logger.exception("failed to write document vectors", extra={"doc_id": doc_id})
                 release.append(doc_id)
             finally:
                 active.discard(doc_id)

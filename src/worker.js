@@ -188,18 +188,16 @@ async function facetCounts(request, env, url) {
   return json({ fields, total: totalCount, approximate: semantic, query });
 }
 
-// The Scans API match-set selector: a semantic query counts an `ann` ball around
-// the query vector (relevance has no exact lexical set), keyword/fused an exact
-// `fts` predicate. At most one ranked selector; vector+radius wins. Mirrors
+// The Scans API match-set selector, following the gateway's routing decision: a
+// semantic query counts an `ann` ball around the query vector (relevance has no
+// exact lexical set), keyword/fused a `hybrid_text` selector — the BM25 leg plus
+// one per-token fuzzy leg, the same expansion the route ranks (RFC 0057), so the
+// fuzzy/typo matches (afib, aspirn, CABG) the route retrieves are counted, not
+// missed. At most one ranked selector; vector+radius (semantic only) wins. Mirrors
 // chart_common.gateway.count_selector.
-// Gap: the `fts` selector is exact BM25 only — it cannot mirror the hybrid_text
-// route's per-token fuzzy legs (RFC 0057), so a fuzzy/typo query (afib, aspirn)
-// counts as zero even though the route retrieves it. The UI withholds any total
-// that falls below the hits on screen; the fix is a fuzzy-aware scan selector
-// (see LAYER_IMPROVEMENTS.md).
 function countSelector({ query, vector, radius }) {
   if (vector && radius != null) return { ann: { field: "vector", vector, radius } };
-  if (query) return { fts: { field: "text", query } };
+  if (query) return { hybrid_text: { field: "text", query } };
   return {};
 }
 
