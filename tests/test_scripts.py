@@ -860,13 +860,14 @@ def test_deploy_apply_defaults_to_ordered_client_dry_run() -> None:
     script = _script("deploy_apply.sh")
 
     assert 'MODE="client-dry-run"' in script
-    assert 'kubectl_apply_manifest "$manifest" --dry-run=client --validate=false' in script
-    assert 'kubectl_apply_manifest "$manifest" --dry-run=server' in script
-    assert 'kubectl_apply_manifest "$manifest"' in script
+    assert 'apply_or_fail "$manifest" --dry-run=client --validate=false' in script
+    assert 'apply_or_fail "$manifest" --dry-run=server' in script
+    assert 'apply_or_fail "$manifest"' in script
     assert "render_manifest()" in script
     assert "CHART_EMBED_IMAGE" in script
     assert "CHART_CLASSIFIER_IMAGE" in script
-    assert "require_secret chart-turbopuffer" in script
+    assert "require_secret chart-hevsearch" in script
+    assert "require_secret chart-layer-inbound" in script
     assert "require_secret chart-gateway" in script
     assert "deploy/secrets.example.yaml" in script
     assert script.index("deploy/namespace.yaml") < script.index("deploy/vectorstore.yaml")
@@ -899,8 +900,8 @@ def test_deploy_apply_defaults_to_ordered_client_dry_run() -> None:
     assert '"classifier_cost_accepted": classifier_cost_accepted == "true"' in script
     assert 'kubectl -n "$namespace" get secret "$name"' in script
     assert 'kubectl -n chart get secret "$name"' not in script
-    assert 'kubectl_apply_manifest deploy/functions-events.yaml' in script
-    assert 'kubectl_apply_manifest deploy/functions-events.yaml --dry-run=client --validate=false' in script
+    assert 'apply_or_fail deploy/functions-events.yaml' in script
+    assert 'apply_or_fail deploy/functions-events.yaml --dry-run=client --validate=false' in script
     assert "skipped deploy/functions-events.yaml" in script
 
 
@@ -1063,7 +1064,7 @@ def test_build_gpu_images_dry_runs_manifest_image_builds() -> None:
     assert "CHART_GPU_PLATFORM" in script
     assert "deploy/Dockerfile.gpu" in script
     assert "layer_client=${layer_context}" in script
-    assert "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260624-dedupe2" in script
+    assert "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1" in script
     assert "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-huggingface-source-plan-20260624-concurrent" in script
     assert "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260624" in script
     assert "chart-embedder:latest" not in script
@@ -1118,7 +1119,7 @@ def test_build_gpu_images_dry_run_writes_report(tmp_path) -> None:
     data = json.loads(report.read_text())
     assert data["mode"] == "dry-run"
     assert data["status"] == "dry-run"
-    assert data["embed_image"] == "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260624-dedupe2"
+    assert data["embed_image"] == "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1"
     assert data["source_image"] == "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-huggingface-source-plan-20260624-concurrent"
     assert data["classifier_image"] == "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260624"
     assert data["platform"] == "linux/amd64"
@@ -1152,7 +1153,7 @@ def test_build_gpu_images_ecr_repository_derives_chart_tags(tmp_path) -> None:
 
     assert result.returncode == 0, result.stderr
     data = json.loads(report.read_text())
-    assert data["embed_image"] == f"{ecr_repo}:chart-embedder-plan-20260624-dedupe2"
+    assert data["embed_image"] == f"{ecr_repo}:chart-embedder-plan-20260626-batchdocs1"
     assert data["source_image"] == f"{ecr_repo}:chart-huggingface-source-plan-20260624-concurrent"
     assert data["classifier_image"] == f"{ecr_repo}:chart-classifier-plan-20260624"
 

@@ -59,7 +59,7 @@ def test_events_function_manifest_is_resumable() -> None:
 
     assert manifest["kind"] == "Function"
     assert manifest["metadata"]["name"] == "chart-classify-events"
-    assert manifest["spec"]["paused"] is True
+    assert manifest["spec"]["paused"] is False
     assert manifest["spec"]["targetNamespaces"] == ["chart-notes"]
     assert manifest["spec"]["inputs"] == ["id", "text"]
     assert manifest["spec"]["filter"] == ["events", "Eq", None]
@@ -96,22 +96,70 @@ def test_ingest_index_and_facets_share_namespace_and_pins() -> None:
     assert pipeline["spec"]["sourceRef"]["chunk"]["tokenizer"] == "snowflake-arctic-embed-m-v1.5"
 
     assert index["spec"]["backend"]["namespace"] == "chart-notes"
-    assert index["spec"]["backend"]["storeRef"] == "turbopuffer-default"
+    assert index["spec"]["backend"]["storeRef"] == "search-default"
     assert index["spec"]["snapshot"]["facetFields"] == FACET_FIELDS
     assert all(field in SCHEMA and "type" in SCHEMA[field] for field in FACET_FIELDS)
     assert warehouse["spec"]["kind"] == "huggingface"
-    assert vectorstore["spec"]["kind"] == "turbopuffer"
-    assert vectorstore["spec"]["inboundAuth"]["mode"] == "deriveFromStore"
+    assert vectorstore["spec"]["kind"] == "search"
+    assert vectorstore["metadata"]["name"] == "search-default"
+    assert vectorstore["spec"]["inboundAuth"]["mode"] == "keys"
+    # The engine's own tokens stay upstream-only, referenced from a Secret.
+    assert vectorstore["spec"]["credential"]["secretRef"]["name"] == "chart-hevsearch"
+    assert vectorstore["spec"]["search"]["adminCredential"]["secretRef"]["name"] == "chart-hevsearch"
+
+
+def test_vectorstore_engine_and_apikey_wire_the_search_backend_together() -> None:
+    vectorstore = _manifest("vectorstore.yaml")
+    engine = _manifest_all("hevsearch-engine.yaml")
+    apikey = _manifest("apikey.yaml")
+
+    deployment = next(m for m in engine if m["kind"] == "Deployment")
+    service = next(m for m in engine if m["kind"] == "Service")
+    container = deployment["spec"]["template"]["spec"]["containers"][0]
+    env = {item["name"]: item for item in container["env"]}
+
+    assert vectorstore["spec"]["endpoint"]["url"] == "http://hevsearch.chart.svc.cluster.local:3000"
+    assert service["metadata"]["name"] == "hevsearch"
+    assert service["spec"]["ports"][0]["port"] == 3000
+    assert env["HEVSEARCH_STORAGE_URI"]["value"] == "s3://hev-search-186219257916/chart"
+    assert env["HEVSEARCH_API_KEY"]["valueFrom"]["secretKeyRef"]["name"] == "chart-hevsearch"
+    assert "ghcr.io" not in container["image"]
+
+    assert apikey["kind"] == "ApiKey"
+    entitlements = apikey["spec"]["entitlements"]
+    assert entitlements["vectorstore.search-default"]["scopes"] == ["read", "write"]
+    assert entitlements["vectorstore.search-default"]["namespaces"] == ["chart-notes"]
+    assert "agent.chart-notes" in entitlements
+
+
+def test_agent_manifest_binds_the_reasoning_loop_to_chart_notes() -> None:
+    agent = _manifest("agent.yaml")
+
+    assert agent["kind"] == "Agent"
+    assert agent["metadata"]["name"] == "chart-notes"
+    assert agent["spec"]["indices"] == ["chart-notes"]
+    assert agent["spec"]["model"]["provider"] == "openrouter"
+    # The credential is a Secret ref, never inline (the Agent CRD rejects a raw token).
+    assert agent["spec"]["model"]["apiKeySecretRef"]["name"] == "chart-openrouter"
+    assert "apiKey" not in agent["spec"]["model"]
+    assert agent["spec"]["budget"]["onDeadline"] == "bestEffort"
+    # Provenance on: the demo renders $agent scores and the planned variants.
+    assert agent["spec"]["output"]["provenance"] is True
 
 
 def test_secret_template_documents_required_runtime_secrets() -> None:
     secrets = _manifest_all("secrets.example.yaml")
 
-    assert [secret["metadata"]["name"] for secret in secrets] == ["chart-turbopuffer", "chart-gateway"]
+    assert [secret["metadata"]["name"] for secret in secrets] == [
+        "chart-hevsearch",
+        "chart-layer-inbound",
+        "chart-gateway",
+    ]
     assert all(secret["kind"] == "Secret" for secret in secrets)
     assert all(secret["metadata"]["namespace"] == "chart" for secret in secrets)
-    assert secrets[0]["stringData"] == {"credential": "REPLACE_WITH_TURBOPUFFER_KEY"}
-    assert secrets[1]["stringData"] == {"LAYER_GATEWAY_API_KEY": "REPLACE_WITH_LAYER_GATEWAY_API_KEY"}
+    assert set(secrets[0]["stringData"]) == {"data-api-key", "admin-api-key", "metrics-token"}
+    assert set(secrets[1]["stringData"]) == {"api-key"}
+    assert secrets[2]["stringData"] == {"LAYER_GATEWAY_API_KEY": "REPLACE_WITH_LAYER_GATEWAY_API_KEY"}
 
 
 def test_gpu_dockerfile_builds_manifest_images() -> None:
@@ -124,7 +172,7 @@ def test_gpu_dockerfile_builds_manifest_images() -> None:
     assert "FROM base AS classifier" in dockerfile
     assert "python\", \"-m\", \"indexer.embed\"" in dockerfile
     assert "python\", \"-m\", \"functions.classify_events\"" in dockerfile
-    assert embed_manifest["spec"]["worker"]["image"] == f"{ECR_REPOSITORY}:chart-embedder-plan-20260624-dedupe2"
+    assert embed_manifest["spec"]["worker"]["image"] == f"{ECR_REPOSITORY}:chart-embedder-plan-20260626-batchdocs1"
     assert classifier_manifest["spec"]["worker"]["image"] == f"{ECR_REPOSITORY}:chart-classifier-plan-20260624"
     assert not embed_manifest["spec"]["worker"]["image"].endswith(":latest")
     assert not classifier_manifest["spec"]["worker"]["image"].endswith(":latest")

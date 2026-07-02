@@ -29,6 +29,16 @@ The routing badge renders the gateway's own decision (RFC 0044) — the demo
 routes execute in one hop; RFC 0044 deferral is the fast-follow that will make
 short keyword traffic skip embedding entirely.
 
+One rung above the router, the **Agentic search** toggle runs the same query
+through a configured reasoning loop (`POST /v2/agents/chart-notes/query`,
+RFC 0074 / `deploy/agent.yaml`): a model reformulates the query, fans out for
+recall, grades the candidates, and returns the standard row shape. With
+provenance on, the inspector shows the agent's *plan* — the reformulated
+variants and inferred filters — and each hit carries its retrieval + relevance
+scores. Same "show the decision" DNA, one level up. The backing store is the
+first-party **hev search** engine behind the gateway (`deploy/vectorstore.yaml`,
+`kind: search`).
+
 ## Two things this demo proves
 
 1. **Query routing, with a number.** chart is the first Layer demo with **real

@@ -134,6 +134,14 @@ log. A finding that is not an issue or RFC on `hev/layer` has not been reported.
 
 Open Layer follow-ups from chart:
 
+- `hev/layer#137` — the Python client rejects the search-backed write response
+  shape; `chart_common/gateway.py:write_notes` carries the same narrow catch
+  shelf does until the gateway/client shapes are normalized.
+- `hev/layer#138` — Layer does not build hev search FTS/ANN indexes on write;
+  the cutover validation may require a manual `/fts-index` + `/index`
+  intervention (as shelf's did).
+- `hev/layer#141` — the `hybrid_text` scan selector is rejected on kind=search;
+  chart's live facet counts use `fts` until it lands.
 - `hev/layer#99` — paused Function is unobservable (UDF status 404); root cause of
   the empty `events`/`specialty`/`diagnosis_category` facets, which stay empty
   until the classifier backfill runs.
@@ -151,8 +159,10 @@ Landed / consumed (kept for traceability):
   external windowing loop is retired).
 - RFC 0082 K1 (`warmWindowSeconds`) — landed and consumed on the GPU embed
   Pipeline (`deploy/pipeline-embed.yaml`); the classifier `Function` still needs it.
-- Scans API `hybrid_text` selector (`hev/layer` `ed86668`) — chart counts the
-  keyword/fused route faithfully.
+- Scans API `hybrid_text` selector (`hev/layer` `ed86668`) — landed, but
+  kind=search rejects it today (hev/layer#141), so since the hev search cutover
+  chart counts the keyword/fused route via an `fts` selector (fuzzy-surfaced
+  matches approximated by their exact lexical terms).
 
 Important current Layer notes:
 

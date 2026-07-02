@@ -1,0 +1,22 @@
+# ApiKey — the minted key the search backends present to the gateway.
+#
+# Declarative equivalent of the LAYER_GATEWAY_API_KEY the backends load from the
+# environment. Two entitlements: data-plane read/write through the search-backed
+# store (scoped to the chart-notes namespace), and the right to invoke the
+# agentic-search Agent (deploy/agent.yaml). The agent's reads still run under
+# this key's own vectorstore grant — `agent.<name>` governs who may invoke, not
+# what it reads. See docs/kubernetes/apikey-crd and docs/api/agents § Auth.
+apiVersion: hevlayer.com/v1alpha1
+kind: ApiKey
+metadata:
+  name: chart-notes
+  namespace: chart
+spec:
+  owner: chart
+  description: chart demo backends — routed search + agentic search over chart-notes
+  entitlements:
+    vectorstore.search-default:
+      scopes: [read, write]
+      namespaces: ["chart-notes"]
+    agent.chart-notes: {}
+  expiresAfter: never

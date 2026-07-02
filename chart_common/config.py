@@ -29,21 +29,27 @@ class Settings(BaseSettings):
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
 
-    # Gateway. deriveFromStore auth: the key IS the upstream Turbopuffer key
-    # (1Password: layer-turbopuffer / mesh-staging vault).
+    # Gateway. The backing store is hev search (deploy/vectorstore.yaml,
+    # kind=search): inbound auth uses Layer-issued scoped keys, so the key is a
+    # Layer inbound key scoped to chart-notes — the hev search data/admin tokens
+    # stay upstream-only.
     gateway_url: str = Field(
         default="https://aws-us-east-1.hevlayer.com",
         validation_alias=AliasChoices("LAYER_GATEWAY_URL", "HEVLAYER_BASE_URL"),
     )
     api_key: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("LAYER_GATEWAY_API_KEY", "LAYER_TURBOPUFFER_KEY"),
+        validation_alias="LAYER_GATEWAY_API_KEY",
     )
     namespace: str = Field(default="chart-notes", validation_alias="CHART_NAMESPACE")
     embed_model: str = Field(
         default="Snowflake/snowflake-arctic-embed-m-v1.5",
         validation_alias="CHART_EMBED_MODEL",
     )
+    # The configured Agent (deploy/agent.yaml) the agentic-search option invokes
+    # via POST /v2/agents/{name}/query (docs/api/agents). The inbound key needs
+    # the agent.<name> entitlement (deploy/apikey.yaml).
+    agent_name: str = Field(default="chart-notes", validation_alias="CHART_AGENT_NAME")
     http_timeout_seconds: float = 60.0
 
     # Semantic facet counts: a semantic-routed query has no exact "match set" the

@@ -139,15 +139,22 @@ def test_worker_and_python_backends_share_facet_counts_scan_contract() -> None:
     assert "async function facetCounts(" in source
     assert '@app.get("/api/facet-counts")' in app_py
 
+    # …and the shelf-shaped spelling: /api/facets?q= delegates to the same
+    # per-search counts, while bare /api/facets stays the corpus snapshot rail.
+    assert "return facetCounts(request, env, url);" in source.split("async function facets(request, env, url)")[1]
+    assert "return await facet_counts(q=q, f=f, route=route)" in app_py
+
     # …backed by the Scans API: a count-mode scan for the matching total and a
-    # values-mode scan per facet. The keyword/fused route counts via the
-    # `hybrid_text` selector (BM25 + per-token fuzzy), so the fuzzy/typo matches the
-    # route surfaces are counted, not missed by an exact-BM25 `fts`.
+    # values-mode scan per facet. The keyword/fused route counts via an `fts`
+    # selector over the routed text field — a `hybrid_text` selector would mirror
+    # the fused route exactly (BM25 + per-token fuzzy) but kind=search rejects it
+    # today (hev/layer#141), so fuzzy-surfaced matches are approximated by their
+    # exact lexical terms.
     assert 'mode: "count"' in source and 'mode: "values"' in source
     assert '/v2/namespaces/${encodeURIComponent(namespace(env))}/scans' in source
     assert '"mode": "count"' in gateway_py and '"mode": "values"' in gateway_py
-    assert '{ hybrid_text: { field: "text", query } }' in source
-    assert '{"hybrid_text": {"field": "text", "query": query}}' in gateway_py
+    assert '{ fts: { field: "text", query } }' in source
+    assert '{"fts": {"field": "text", "query": query}}' in gateway_py
 
 
 def test_worker_and_python_backends_count_semantic_queries_with_a_vector_radius() -> None:
@@ -157,7 +164,7 @@ def test_worker_and_python_backends_count_semantic_queries_with_a_vector_radius(
     config_py = (WORKER.parent.parent / "chart_common" / "config.py").read_text()
 
     # A semantic query has no exact lexical match set, so its count is an `ann`
-    # radius ball around the query vector; keyword/fused counts via `hybrid_text`.
+    # radius ball around the query vector; keyword/fused counts via `fts`.
     assert '{ ann: { field: "vector", vector, radius } }' in source
     assert '{"ann": {"field": "vector", "vector": vector, "radius": radius}}' in gateway_py
 
@@ -172,11 +179,39 @@ def test_worker_and_python_backends_count_semantic_queries_with_a_vector_radius(
     assert "semanticRadius(env)" in source
 
 
+def test_worker_and_python_backends_share_the_agentic_search_contract() -> None:
+    source = WORKER.read_text()
+    app_py = (WORKER.parent.parent / "search" / "app.py").read_text()
+    config_py = (WORKER.parent.parent / "chart_common" / "config.py").read_text()
+
+    # Both backends run agentic search behind the same /api/search?agentic=1 flag,
+    # posting the query + BYO Arctic vector to the configured Agent (docs/api/agents).
+    assert 'url.searchParams.get("agentic") === "1"' in source
+    assert "async function agentQuery(" in source
+    assert "/v2/agents/${encodeURIComponent(agentName(env))}/query" in source
+    assert "agentic: int = 0" in app_py
+    assert "_run_agent_query" in app_py
+    assert "query_agent(app.state.settings.agent_name" in app_py
+
+    # The BYO-embedding contract: one query vector for every planned semantic leg.
+    assert '{ query, vector, top_k: topK }' in source
+    assert '{"query": query, "vector": vector, "top_k"' in app_py
+
+    # The Agent name is config, defaulting to chart-notes in both backends.
+    assert 'env.CHART_AGENT_NAME || "chart-notes"' in source
+    assert 'validation_alias="CHART_AGENT_NAME"' in config_py
+
+    # Both return the agent/merge echo with no routing block (nothing was routed —
+    # the reasoning loop sits above the router).
+    assert '"routing": None' in app_py
+    assert "routing: null" in source.split("async function agentQuery(")[1]
+
+
 def test_worker_rejects_non_get_methods_for_all_api_endpoints() -> None:
     source = WORKER.read_text()
 
-    assert 'if (url.pathname === "/api/facets") return facets(request, env);' in source
+    assert 'if (url.pathname === "/api/facets") return facets(request, env, url);' in source
     assert 'if (url.pathname === "/api/config")' in source
-    assert 'async function facets(request, env)' in source
+    assert 'async function facets(request, env, url)' in source
     assert 'assertMethod(request, "GET");' in source.split('if (url.pathname === "/api/config")')[1]
-    assert 'assertMethod(request, "GET");' in source.split("async function facets(request, env)")[1]
+    assert 'assertMethod(request, "GET");' in source.split("async function facets(request, env, url)")[1]

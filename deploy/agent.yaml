@@ -1,0 +1,40 @@
+# Agent — the agentic-search reasoning loop as a resource (docs/kubernetes/agent-crd,
+# RFC 0074). One rung above the Auto router: a model reformulates the query, fans
+# out for recall over chart-notes via the federated query, grades the candidates,
+# and returns the standard row shape. The UI's "Agentic" toggle invokes it via
+# POST /v2/agents/chart-notes/query in both backends.
+#
+# provenance: true is the demo-worthy part — each row carries $agent (retrieval +
+# relevance scores) and the response echoes the planned query variants, chart's
+# "show the decision" DNA one rung above the routing badge.
+#
+# The OpenRouter credential lives in a Secret (chart-openrouter, key credential),
+# never inline. Like the rest of deploy/, illustrative against the shared gateway:
+# provisioning the Agent + Secret there is a Layer-team coordination item (see
+# deploy/README.md), and the inbound key needs the agent.chart-notes entitlement
+# (deploy/apikey.yaml).
+apiVersion: hevlayer.com/v1alpha1
+kind: Agent
+metadata:
+  name: chart-notes
+  namespace: chart
+spec:
+  model:
+    provider: openrouter
+    name: anthropic/claude-haiku-4-5
+    fallback: anthropic/claude-sonnet-4-6
+    apiKeySecretRef:
+      name: chart-openrouter
+      key: credential
+  budget:
+    deadlineMs: 60000
+    onDeadline: bestEffort
+  indices: [chart-notes]
+  retrieval:
+    fanout: 8
+    recallDepth: 50
+    rankBy: auto
+    relevanceWeight: 0.6
+  output:
+    provenance: true
+    trace: false

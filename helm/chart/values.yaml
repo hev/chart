@@ -1,7 +1,7 @@
 # The serving layer only. The ingestion side (chart-ingest / chart-embed-gpu
 # Pipelines, chart-classify-events Function, Warehouse, VectorStore) is owned by
 # the Layer operator via the CRs in deploy/, and the chart-gateway /
-# chart-turbopuffer Secrets already exist in the namespace.
+# chart-hevsearch / chart-layer-inbound Secrets already exist in the namespace.
 namespace:
   # The `chart` namespace already exists (operator-managed). Don't recreate it.
   create: false
@@ -39,8 +39,8 @@ config:
   TRANSFORMERS_OFFLINE: "1"
 
 secrets:
-  # Reuse the existing Secret; it holds LAYER_GATEWAY_API_KEY (the deriveFromStore
-  # gateway key). This chart does not create or own it.
+  # Reuse the existing Secret; it holds LAYER_GATEWAY_API_KEY (the Layer inbound
+  # key scoped to chart-notes). This chart does not create or own it.
   existingSecret: chart-gateway
 
 ingress:

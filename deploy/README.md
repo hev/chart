@@ -7,7 +7,10 @@ side. It is also, one-to-one, the manifest set RFC 0076 specifies.
 
 | File | Owns | Imperative twin |
 |---|---|---|
-| `vectorstore.yaml` | upstream Turbopuffer connection + `deriveFromStore` inbound auth | `chart_common/gateway.py:make_client()` |
+| `vectorstore.yaml` | hev search backend connection + Layer scoped-key inbound auth | `chart_common/gateway.py:make_client()` |
+| `hevsearch-engine.yaml` | the hev search engine itself (illustrative; the shared Layer cluster owns production ops) | — |
+| `apikey.yaml` | the minted inbound key: store read/write + the `agent.chart-notes` entitlement | the `LAYER_GATEWAY_API_KEY` env |
+| `agent.yaml` | the agentic-search reasoning loop: model, budget, indices, provenance | `/api/search?agentic=1` in both backends |
 | `warehouse.yaml` | the data source identity (`huggingface`, public/no-Secret) | `chart_common/config.py` dataset pin |
 | `pipeline.yaml` | staged ingestion: source → chunk | `python -m indexer --dry-run --limit ...` load/chunk equivalent |
 | `pipeline-embed.yaml` | GPU embedding for the full index | `python -m indexer.embed` worker path, cost-gated |
@@ -61,16 +64,26 @@ The final audit prints the same real apply as a compact next-step command:
 CHART_APPLY_CLASSIFIER=1 CHART_ACCEPT_PHASE4_CLASSIFY_COST=1 CHART_K8S_CONTEXT_CONFIRM="$(kubectl config current-context)" scripts/deploy_apply.sh --apply
 ```
 
-Before `--apply`, create the two runtime Secrets in namespace `chart`:
+Before `--apply`, create the three runtime Secrets in namespace `chart`:
 
-- `chart-turbopuffer`, key `credential` — upstream Turbopuffer key for the
-  VectorStore.
-- `chart-gateway`, key `LAYER_GATEWAY_API_KEY` — gateway key injected into the
-  GPU embed/classifier workers.
+- `chart-hevsearch`, keys `data-api-key` / `admin-api-key` / `metrics-token` —
+  the hev search engine's own tokens (upstream-only; no app code sees them).
+- `chart-layer-inbound`, key `api-key` — the Layer-issued inbound key the
+  gateway accepts for the `chart-notes` scope.
+- `chart-gateway`, key `LAYER_GATEWAY_API_KEY` — the same inbound key, injected
+  into the GPU embed/classifier workers.
 
 Use `deploy/secrets.example.yaml` as the shape reference only; do not apply it
-with placeholder values. The helper checks that both Secrets exist before applying
+with placeholder values. The helper checks that the Secrets exist before applying
 the namespaced runtime resources.
+
+Production cutover is a Layer-team coordination item: the shared gateway must
+provision the `kind: search` VectorStore, the hev search engine, and repoint the
+`chart-notes` Index — the same request shelf made (tracked in hev/layer#134).
+The agentic option additionally needs the `Agent` CR (`agent.yaml`) with its
+OpenRouter credential Secret, and the `agent.chart-notes` entitlement on the
+inbound key (`apikey.yaml`). These manifests document the requested shape; they
+are not applied from this repo.
 
 The full-index embed worker command is:
 

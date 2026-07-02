@@ -22,7 +22,7 @@ metadata:
   namespace: chart
 spec:
   backend:
-    storeRef: turbopuffer-default
+    storeRef: search-default
     namespace: chart-notes
     distanceMetric: cosine_distance
   metadata:

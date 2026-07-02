@@ -57,7 +57,7 @@ render_manifest() {
   local default_image=""
   if [[ "$manifest" == "deploy/pipeline-embed.yaml" && -n "${CHART_EMBED_IMAGE:-}" ]]; then
     image_var="$CHART_EMBED_IMAGE"
-    default_image="186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260624-dedupe2"
+    default_image="186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1"
   elif [[ "$manifest" == "deploy/functions-events.yaml" && -n "${CHART_CLASSIFIER_IMAGE:-}" ]]; then
     image_var="$CHART_CLASSIFIER_IMAGE"
     default_image="186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260624"
@@ -88,6 +88,14 @@ kubectl_apply_manifest() {
   local rendered
   rendered="$(render_manifest "$manifest")"
   kubectl apply "$@" -f "$rendered"
+}
+
+apply_or_fail() {
+  local manifest="$1"
+  shift
+  if ! kubectl_apply_manifest "$manifest" "$@"; then
+    fail_report "failed to apply $manifest in $MODE mode"
+  fi
 }
 
 write_report() {
@@ -256,35 +264,36 @@ fi
 if [[ "$MODE" == "client-dry-run" ]]; then
   write_report "started" "validated"
   for manifest in "${manifests[@]}"; do
-    kubectl_apply_manifest "$manifest" --dry-run=client --validate=false
+    apply_or_fail "$manifest" --dry-run=client --validate=false
   done
   write_report "completed" "validated"
   echo "deploy client dry-run passed"
 elif [[ "$MODE" == "server-dry-run" ]]; then
   write_report "started" "validated"
   for manifest in "${manifests[@]}"; do
-    kubectl_apply_manifest "$manifest" --dry-run=server
+    apply_or_fail "$manifest" --dry-run=server
   done
   write_report "completed" "validated"
   echo "deploy server dry-run passed"
 else
   write_report "started" "pending"
   require_kube_context_confirm
-  kubectl_apply_manifest deploy/namespace.yaml
-  require_secret chart-turbopuffer
+  apply_or_fail deploy/namespace.yaml
+  require_secret chart-hevsearch
+  require_secret chart-layer-inbound
   require_secret chart-gateway
   for manifest in "${runtime_manifests[@]}"; do
-    kubectl_apply_manifest "$manifest"
+    apply_or_fail "$manifest"
   done
   if [[ "${CHART_APPLY_CLASSIFIER:-}" == "1" ]]; then
     if [[ "${CHART_ACCEPT_PHASE4_CLASSIFY_COST:-}" != "1" ]]; then
       fail_report "refusing to apply deploy/functions-events.yaml without CHART_ACCEPT_PHASE4_CLASSIFY_COST=1"
     fi
     require_classifier_report
-    kubectl_apply_manifest deploy/functions-events.yaml
+    apply_or_fail deploy/functions-events.yaml
     write_report "completed" "applied"
   else
-    kubectl_apply_manifest deploy/functions-events.yaml --dry-run=client --validate=false
+    apply_or_fail deploy/functions-events.yaml --dry-run=client --validate=false
     write_report "completed" "validated-skipped"
     echo "skipped deploy/functions-events.yaml; set CHART_APPLY_CLASSIFIER=1 and CHART_ACCEPT_PHASE4_CLASSIFY_COST=1 after the Phase-4 cost gate to apply it"
   fi

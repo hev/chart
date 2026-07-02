@@ -61,7 +61,7 @@ export default {
     try {
       if (url.pathname === "/api/search") return search(request, env, url);
       if (url.pathname.startsWith("/api/similar/")) return similar(request, env, url);
-      if (url.pathname === "/api/facets") return facets(request, env);
+      if (url.pathname === "/api/facets") return facets(request, env, url);
       if (url.pathname === "/api/facet-counts") return facetCounts(request, env, url);
       if (url.pathname === "/api/config") {
         assertMethod(request, "GET");
@@ -82,6 +82,15 @@ async function search(request, env, url) {
   assertMethod(request, "GET");
   const query = (url.searchParams.get("q") || "").trim();
   const filters = parseFilters(url);
+
+  // Agentic search (docs/api/agents): the configured reasoning loop instead of
+  // the single-hop Auto route. Facet filters don't apply — the agent infers its
+  // own, echoed in the response. Mirrors search/app.py.
+  if (url.searchParams.get("agentic") === "1" && query) {
+    const result = await agentQuery(env, query, boundedTopK(url.searchParams.get("top_k"), 20, 50));
+    result.query = query;
+    return json(result);
+  }
 
   if (!query) {
     // Empty box: filter-only cohort browse (no query → no routing decision), or
@@ -124,8 +133,14 @@ async function similar(request, env, url) {
   return json(result);
 }
 
-async function facets(request, env) {
+// The clinical facet rail, in two modes (the same contract as shelf's rail):
+// with `q` (or active filters) it delegates to the per-search live counts; bare,
+// it reads the corpus-wide snapshot histograms. Mirrors search/app.py.
+async function facets(request, env, url) {
   assertMethod(request, "GET");
+  if ((url.searchParams.get("q") || "").trim() || url.searchParams.getAll("f").length) {
+    return facetCounts(request, env, url);
+  }
   const out = {};
   const wanted = new Set(FACET_FIELDS);
   const history = await gatewayFetch(env, `/v2/namespaces/${encodeURIComponent(namespace(env))}/history?limit=20`);
@@ -190,14 +205,15 @@ async function facetCounts(request, env, url) {
 
 // The Scans API match-set selector, following the gateway's routing decision: a
 // semantic query counts an `ann` ball around the query vector (relevance has no
-// exact lexical set), keyword/fused a `hybrid_text` selector — the BM25 leg plus
-// one per-token fuzzy leg, the same expansion the route ranks (RFC 0057), so the
-// fuzzy/typo matches (afib, aspirn, CABG) the route retrieves are counted, not
-// missed. At most one ranked selector; vector+radius (semantic only) wins. Mirrors
+// exact lexical set), keyword/fused an `fts` selector over the routed text field.
+// A `hybrid_text` selector (BM25 + per-token fuzzy, RFC 0057) would mirror the
+// fused route exactly, but kind=search rejects it today (hev/layer#141), so the
+// fuzzy/typo matches are approximated by their exact lexical terms. At most one
+// ranked selector; vector+radius (semantic only) wins. Mirrors
 // chart_common.gateway.count_selector.
 function countSelector({ query, vector, radius }) {
   if (vector && radius != null) return { ann: { field: "vector", vector, radius } };
-  if (query) return { hybrid_text: { field: "text", query } };
+  if (query) return { fts: { field: "text", query } };
   return {};
 }
 
@@ -246,6 +262,47 @@ async function scanFacetValues(env, { field, selector, filters, limit = 24 }) {
   } catch (_) {
     return null;
   }
+}
+
+// POST /v2/agents/{name}/query with the query, its Arctic embedding (BYO — Layer
+// never embeds query text; the one vector serves every planned semantic leg), and
+// top_k. The Agent CR (deploy/agent.yaml) owns model, fan-out, and fusion; with
+// provenance on, rows carry $agent scores and the response echoes the planned
+// variants. Mirrors chart_common/search/app.py:_run_agent_query.
+async function agentQuery(env, query, topK) {
+  const vector = await embedQuery(env, query);
+  const body = { query, vector, top_k: topK };
+  const path = `/v2/agents/${encodeURIComponent(agentName(env))}/query`;
+  const started = Date.now();
+  let response;
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      response = await gatewayFetch(env, path, {
+        method: "POST",
+        body: JSON.stringify(body),
+        headers: { "content-type": "application/json" },
+      });
+      break;
+    } catch (error) {
+      if (!TRANSIENT.has(error.status) || attempt === 2) throw error;
+      lastError = error;
+      await sleep(400 * (attempt + 1));
+    }
+  }
+  if (!response) throw lastError || new Error("agent query failed");
+  return {
+    rows: response.rows || [],
+    routing: null,
+    hybrid: null,
+    agent: response.agent || null,
+    merge: response.merge || null,
+    took_ms: Date.now() - started,
+  };
+}
+
+function agentName(env) {
+  return env.CHART_AGENT_NAME || "chart-notes";
 }
 
 async function queryNamespace(env, body, options = {}) {

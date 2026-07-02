@@ -5,6 +5,7 @@ import time
 from typing import Any
 
 from hevlayer import AsyncHevlayer
+from pydantic import ValidationError
 
 from .config import Settings
 
@@ -16,7 +17,7 @@ from .config import Settings
 FACET_FIELDS = ["specialty", "age_band", "diagnosis_category", "gender", "events"]
 SNAPSHOT_IN_PROGRESS = {"queued", "pending", "running"}
 
-# Explicit schema for the columns tpuf can't (or shouldn't) infer.
+# Explicit schema for the columns the backing store can't (or shouldn't) infer.
 #  - text: the FTS + fuzzy field the Auto router ranks over (RFC 0022/0057) —
 #    the keyword/fuzzy route for drug names, codes, abbreviations, and typos.
 #  - title / source_url: display + deep-link; source_url non-filterable.
@@ -66,8 +67,8 @@ def make_client(settings: Settings) -> AsyncHevlayer:
 def require_gateway_key(settings: Settings) -> None:
     if not getattr(settings, "api_key", None):
         raise SystemExit(
-            "No gateway key. Set LAYER_GATEWAY_API_KEY in .env — it's the upstream "
-            "Turbopuffer key (1Password: layer-turbopuffer / mesh-staging). "
+            "No gateway key. Set LAYER_GATEWAY_API_KEY in .env — it is the "
+            "Layer inbound key scoped to chart-notes. "
             "Or run with --dry-run to skip the gateway."
         )
 
@@ -86,14 +87,26 @@ async def close_client(layer: AsyncHevlayer) -> None:
 async def write_notes(layer: AsyncHevlayer, namespace: str, rows: list[dict]) -> Any:
     """Upsert a batch of note rows. Schema is sent inline (idempotent) so the
     text field is FTS+fuzzy-indexed and the vector column is cosine."""
-    return await layer.write_namespace(
-        namespace,
-        {
-            "upsert_rows": rows,
-            "distance_metric": "cosine_distance",
-            "schema": SCHEMA,
-        },
-    )
+    body = {
+        "upsert_rows": rows,
+        "distance_metric": "cosine_distance",
+        "schema": SCHEMA,
+    }
+    try:
+        return await layer.write_namespace(namespace, body)
+    except ValidationError as exc:
+        missing = {
+            ".".join(str(part) for part in error["loc"])
+            for error in exc.errors()
+            if error.get("type") == "missing"
+        }
+        if missing == {"message", "rows_affected", "billing"}:
+            # kind=search currently returns {"status":"OK"} for writes, while
+            # the generated Python client still expects the Turbopuffer write
+            # shape. The write already succeeded server-side; keep indexing and
+            # track the client mismatch in hev/layer#137.
+            return {"status": "OK", "client_parse_warning": "hev/layer#137"}
+        raise
 
 
 async def materialize_facet_snapshots(
@@ -103,7 +116,9 @@ async def materialize_facet_snapshots(
     twin of deploy/index.yaml's snapshot.facetFields auto-writer. Used by the
     indexer because chart doesn't own the Index CR on the shared gateway."""
     for field_name in fields:
-        job = await layer.create_snapshot(namespace, {"field": field_name, "source": "origin"})
+        job = await layer.create_snapshot(
+            namespace, {"field": field_name, "source": "origin", "page_size": 500}
+        )
         start = time.monotonic()
         while _read(job, "status") in SNAPSHOT_IN_PROGRESS:
             if time.monotonic() - start > timeout:
@@ -125,20 +140,22 @@ def count_selector(
 ) -> dict[str, Any]:
     """The Scans API selector that defines a search's match set, following the
     gateway's own routing decision:
-      - keyword/fused query → a `hybrid_text` selector: the BM25 leg plus one
-        per-token fuzzy leg, the same expansion the `hybrid_text`/`fused` route
-        ranks (RFC 0057). Exact — and, unlike a plain `fts` count, it counts the
-        fuzzy/typo-surfaced matches (afib, aspirn, CABG) the route retrieves;
+      - keyword/fused query → an `fts` selector over the routed text field — the
+        closest scan selector to the router's lexical legs. A `hybrid_text`
+        selector (BM25 + per-token fuzzy, RFC 0057) would mirror the fused route
+        exactly and count the typo-surfaced matches too, but kind=search rejects
+        it today (hev/layer#141), so fuzzy-surfaced hits are approximated by
+        their exact lexical terms;
       - semantic query → an `ann` ball of `radius` (cosine distance) around the
         query vector, since semantic relevance has no exact lexical match set.
         Approximate by ANN recall.
     A request carries at most one ranked selector; vector+radius wins over query.
     The caller supplies vector+radius only for the semantic route, so a query
-    without them is the keyword/fused route and counts via `hybrid_text`."""
+    without them is the keyword/fused route and counts via `fts`."""
     if vector is not None and radius is not None:
         return {"ann": {"field": "vector", "vector": vector, "radius": radius}}
     if query:
-        return {"hybrid_text": {"field": "text", "query": query}}
+        return {"fts": {"field": "text", "query": query}}
     return {}
 
 

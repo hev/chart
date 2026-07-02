@@ -25,7 +25,15 @@
     .chip { border:1px solid var(--line); background:#fff; border-radius:999px; padding:.3rem .7rem; font-size:.85rem; cursor:pointer; }
     .chip:hover { border-color:var(--accent); }
     .badge { display:inline-block; font-weight:600; font-size:.8rem; padding:.15rem .5rem; border-radius:6px; color:#fff; }
-    .badge.hybrid_text { background:var(--kw); } .badge.fused { background:var(--fused); } .badge.semantic { background:var(--sem); } .badge.browse { background:var(--muted); }
+    .badge.hybrid_text { background:var(--kw); } .badge.fused { background:var(--fused); } .badge.semantic { background:var(--sem); } .badge.browse { background:var(--muted); } .badge.agentic { background:#7c3aed; }
+    .agentic-toggle { display:flex; align-items:center; gap:.45rem; margin:.5rem 0 0; font-size:.85rem; color:var(--muted); cursor:pointer; user-select:none; }
+    .agentic-toggle input { accent-color:#7c3aed; }
+    .agentic-toggle .hint { font-size:.78rem; }
+    #inspector .plan { margin:.5rem 0 0; padding:0; list-style:none; font-size:.84rem; }
+    #inspector .plan li { padding:.12rem 0; color:var(--muted); }
+    #inspector .plan .pq { color:var(--ink); font-style:italic; }
+    #inspector .plan .proute { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.76rem; color:#7c3aed; }
+    .hit .agentmeta { color:#7c3aed; font-size:.76rem; }
     #inspector { border:1px solid var(--line); border-radius:10px; padding:.9rem; margin:1rem 0; background:#fbfcfe; display:none; }
     #inspector .note { color:var(--muted); margin-top:.4rem; }
     #active { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem; margin:.25rem 0 1rem; }
@@ -87,6 +95,9 @@
       patients from any result.</p>
 
     <input id="box" placeholder="metformin 500mg   ·   elderly woman with progressive dyspnea…" />
+    <label class="agentic-toggle"><input type="checkbox" id="agentic" />
+      Agentic search <span class="hint">— a reasoning loop plans query variants, fans out, and grades
+      relevance (a hev layer Agent; slower, better-ranked)</span></label>
     <div class="chips" id="chips"></div>
 
     <!-- The headline: the gateway's own routing decision, rendered. -->
@@ -164,6 +175,16 @@
       if (event.key === 'Enter') { lastQuery = box.value; lastNote = ''; execute(); }
     });
 
+    // Agentic mode: route the query through the configured reasoning loop
+    // (POST /v2/agents/{name}/query behind /api/search?agentic=1) instead of the
+    // single-hop Auto route. Re-run the current query on toggle.
+    const agenticBox = document.getElementById('agentic');
+    let agenticMode = false;
+    agenticBox.addEventListener('change', () => {
+      agenticMode = agenticBox.checked;
+      if (lastQuery.trim()) execute();
+    });
+
     await loadFacets();
 
     // --- Filtering ---------------------------------------------------------
@@ -213,8 +234,18 @@
       if (q) parts.push('q=' + encodeURIComponent(q));
       parts.push(...params);
       const search = parts.join('&');
+      const agentic = agenticMode && q;
       try {
-        const data = await apiJson('/api/search?' + search + '&top_k=' + FETCH_DEPTH);
+        const data = await apiJson('/api/search?' + search + '&top_k=' + FETCH_DEPTH + (agentic ? '&agentic=1' : ''));
+        if (agentic) {
+          renderAgentic(data);
+          renderResults(data.rows || []);
+          // Facet filters (and the per-search rail scan) don't apply to agentic
+          // search — the agent plans its own filters, echoed in the inspector.
+          liveCounts = null; countsNote = ''; railCounting = false; countsSeq += 1;
+          renderRail();
+          return;
+        }
         renderRouting(data, lastNote);
         renderResults(data.rows || []);
         // The Scans API showcase: count the full match set per facet, async, so the
@@ -227,13 +258,43 @@
       }
     }
 
+    // The agentic twin of renderRouting: the badge is the mode, the signals are
+    // the loop's budget spend, and the note is the agent's own plan — the planned
+    // query variants (with inferred filters) that produced the ranking.
+    function renderAgentic(data) {
+      const agent = data.agent || {};
+      inspector.style.display = 'block';
+      const badge = document.getElementById('badge');
+      badge.className = 'badge agentic';
+      badge.textContent = 'agentic';
+      const merge = data.merge || {};
+      document.getElementById('signals').textContent = [
+        data.took_ms ? `${data.took_ms} ms` : '',
+        agent.turns ? `${agent.turns} turn${agent.turns === 1 ? '' : 's'}` : '',
+        agent.deadlineHit ? 'deadline hit — best ranking so far' : '',
+        merge.method || ''
+      ].filter(Boolean).join(' · ');
+      const note = document.getElementById('note');
+      const filterWarn = activeFilters.size
+        ? '<div>Facet filters don’t apply to agentic search — the agent infers its own, shown in its plan.</div>' : '';
+      const plan = (agent.queries || []).map((pq) => {
+        const filters = pq.filters ? ` · filters ${escapeHtml(JSON.stringify(pq.filters))}` : '';
+        return `<li><span class="pq">“${escapeHtml(pq.query || '')}”</span> <span class="proute">${escapeHtml(pq.rankBy || '')}</span>${filters}</li>`;
+      }).join('');
+      note.innerHTML = filterWarn + (plan
+        ? `The agent’s plan — reformulated variants fanned out for recall:<ul class="plan">${plan}</ul>`
+        : 'Ranked by the configured reasoning loop (provenance echo off).');
+    }
+
     async function refreshCounts(search, route = '') {
       const seq = ++countsSeq;
       railCounting = true;
       countsNote = '';
       renderRail();
       try {
-        const url = '/api/facet-counts?' + search + (route ? '&route=' + encodeURIComponent(route) : '');
+        // The shelf-shaped spelling: /api/facets?q= re-scopes the rail to this
+        // search (a values scan per facet); bare /api/facets is the corpus snapshot.
+        const url = '/api/facets?' + search + (route ? '&route=' + encodeURIComponent(route) : '');
         const data = await apiJson(url);
         if (seq !== countsSeq) return; // a newer search already superseded this one
         // Honesty invariant: a match-total can never be smaller than the hits already
@@ -347,9 +408,16 @@
       const similar = document.createElement('button');
       similar.textContent = 'Similar';
       similar.onclick = () => runSimilar(rowId);
+      // Agentic provenance ($agent, when the Agent echoes it): which planned
+      // variant first surfaced the row, and the model's graded relevance.
+      const ag = row['$agent'];
+      const agentMeta = ag
+        ? `<div class="agentmeta">surfaced by “${escapeHtml(ag.query || '')}” · retrieval #${escapeHtml(String(ag.retrievalScore ?? '?'))} · relevance ${typeof ag.relevanceScore === 'number' ? ag.relevanceScore.toFixed(2) : '?'}</div>`
+        : '';
       hit.innerHTML = `
         <h2>${url ? `<a href="${escapeAttr(url)}" target="_blank" rel="noreferrer">${escapeHtml(title)}</a>` : escapeHtml(title)}</h2>
         <div class="meta">${escapeHtml(facets)}</div>
+        ${agentMeta}
         <p>${escapeHtml(text)}${row.text && row.text.length > 320 ? '…' : ''}</p>
       `;
       if (rowId) hit.querySelector('.meta').append(' ', similar);
@@ -440,11 +508,11 @@
       // are up (so the stale snapshot total never sits next to live match counts).
       const footParts = [];
       if (liveCounts) {
-        footParts.push(approx ? 'live counts · semantic radius scan' : 'live counts · Scans API');
+        footParts.push(approx ? 'semantic radius scan · this search' : 'values scan · this search');
       } else {
         if (countsNote) footParts.push(countsNote);
         if (totalRows != null) footParts.push(`${Number(totalRows).toLocaleString()} cases indexed`);
-        if (sha) footParts.push(sha);
+        if (sha) footParts.push(`facet snapshot · ${sha}`);
       }
       const foot = footParts.length ? `<div class="railfoot">${escapeHtml(footParts.join(' · '))}</div>` : '';
 

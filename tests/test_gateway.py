@@ -57,7 +57,7 @@ async def test_materialize_facet_snapshots_waits_for_in_progress_states(monkeypa
             self.polled = []
 
         async def create_snapshot(self, namespace, body):
-            assert body == {"field": "age_band", "source": "origin"}
+            assert body == {"field": "age_band", "source": "origin", "page_size": 500}
             return self.jobs.pop(0)
 
         async def get_snapshot_job(self, namespace, job_id):

@@ -161,6 +161,40 @@ def search_body(query: str, *, top_k: int = 20) -> QueryRequest:
     )
 
 
+async def _run_agent_query(query: str, *, top_k: int = 20) -> dict:
+    """Agentic search (docs/api/agents): POST /v2/agents/{name}/query with the
+    query, its Arctic embedding (BYO — Layer never embeds query text; the one
+    vector serves every planned semantic leg), and top_k. The configured Agent
+    (deploy/agent.yaml) owns the model, fan-out, and fusion; with provenance on,
+    rows carry $agent scores and the response echoes the planned variants. The
+    request carries no filters — the agent infers its own (visible in the echo)."""
+    vector = app.state.embedder.embed_query(query)
+    if len(vector) != EMBED_DIM:
+        raise HTTPException(status_code=502, detail=f"embedder returned a non-{EMBED_DIM}-d vector")
+    body = {"query": query, "vector": vector, "top_k": max(1, min(top_k, 50))}
+    last_detail = "unknown error"
+    for attempt in range(3):
+        start = time.perf_counter()
+        try:
+            resp = await app.state.layer.query_agent(app.state.settings.agent_name, body)
+        except HevlayerError as exc:
+            if exc.status_code not in TRANSIENT:
+                raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+            last_detail = exc.message
+        else:
+            return {
+                "rows": _rows(resp.rows),
+                "routing": None,
+                "hybrid": None,
+                "agent": _dump(resp.agent),
+                "merge": _dump(resp.merge),
+                "took_ms": round((time.perf_counter() - start) * 1000),
+            }
+        if attempt < 2:
+            await asyncio.sleep(0.4 * (attempt + 1))
+    raise HTTPException(status_code=502, detail=f"agent error after retries: {last_detail}")
+
+
 def similar_body(patient_id: str, *, top_k: int = 20) -> QueryRequest:
     return QueryRequest(
         nearest_to_id=[patient_id],
@@ -183,13 +217,22 @@ def browse_body(filters: Any, *, top_k: int = 20) -> QueryRequest:
 
 
 @app.get("/api/search")
-async def search(q: str = "", top_k: int = 20, f: list[str] = Query(default=[])) -> JSONResponse:
+async def search(
+    q: str = "", top_k: int = 20, f: list[str] = Query(default=[]), agentic: int = 0
+) -> JSONResponse:
     """Auto-routed search, optionally narrowed by the facet rail. Embed up front
     and hand the vector to Auto in the 4th tuple slot, matching shelf's live
     implementation; the gateway makes and echoes the route decision and applies any
-    `filters`. An empty box with active filters becomes a cohort browse instead."""
+    `filters`. An empty box with active filters becomes a cohort browse instead.
+    With `agentic=1`, the query runs the configured reasoning loop instead
+    (POST /v2/agents/{name}/query) — facet filters don't apply there; the agent
+    infers its own, echoed in the response."""
     query = q.strip()
     filters = parse_filters(f)
+    if agentic and query:
+        result = await _run_agent_query(query, top_k=top_k)
+        result["query"] = query
+        return JSONResponse(result)
     if not query:
         if filters is None:
             return JSONResponse({"rows": [], "routing": None, "hybrid": None, "query": ""})
@@ -214,9 +257,16 @@ async def similar(patient_id: str, top_k: int = 12) -> JSONResponse:
 
 
 @app.get("/api/facets")
-async def facets() -> JSONResponse:
-    """The clinical facet rail, read from the latest snapshot bodies (corpus-wide
-    counts + sha provenance), not a tally of returned rows."""
+async def facets(q: str = "", f: list[str] = Query(default=[]), route: str = "") -> JSONResponse:
+    """The clinical facet rail, in two modes (the same contract as shelf's rail).
+
+    With `q` (or active filters), per-search counts scoped by a values scan —
+    delegates to the live-counts path below. Without either, the corpus-wide
+    histogram from the latest snapshot bodies (counts + sha provenance), not a
+    tally of returned rows. Either mode degrades to the other's absence
+    gracefully."""
+    if q.strip() or f:
+        return await facet_counts(q=q, f=f, route=route)
     out = {}
     for field_name in FACET_FIELDS:
         values, provenance = await latest_facets(
@@ -233,6 +283,7 @@ async def facet_counts(q: str = "", f: list[str] = Query(default=[]), route: str
     matching total is a count scan; each facet's breakdown is a values scan over the
     same selector. Scans are slower than top-k (origin scatter/gather), so the UI
     calls this asynchronously, after the ranked results are already on screen.
+    Also reachable as `/api/facets?q=` (the shelf-shaped spelling).
 
     The selector follows the gateway's own routing decision (passed as `route`): a
     `semantic` query counts an `ann` ball of `settings.semantic_radius` around the

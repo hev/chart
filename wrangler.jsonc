@@ -11,7 +11,8 @@
   "vars": {
     "LAYER_GATEWAY_URL": "https://aws-us-east-1.hevlayer.com",
     "CHART_NAMESPACE": "chart-notes",
-    "CHART_EMBED_MODEL": "Snowflake/snowflake-arctic-embed-m-v1.5"
+    "CHART_EMBED_MODEL": "Snowflake/snowflake-arctic-embed-m-v1.5",
+    "CHART_AGENT_NAME": "chart-notes"
     // Production search also needs:
     // - LAYER_GATEWAY_API_KEY as a Wrangler secret
     // - CHART_QUERY_EMBED_URL as a Wrangler var or secret
