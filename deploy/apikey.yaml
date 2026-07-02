@@ -18,5 +18,8 @@ spec:
     vectorstore.search-default:
       scopes: [read, write]
       namespaces: ["chart-notes"]
-    agent.chart-notes: {}
+    # The gateway rejects the bare `{}` form the docs show; invoking the agent
+    # requires an explicit read scope (hev/layer#146).
+    agent.chart-notes:
+      scopes: [read]
   expiresAfter: never

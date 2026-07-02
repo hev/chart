@@ -114,6 +114,21 @@ Failing or blocked required gates:
   status mismatch, and Layer autoscaling readiness.
 - `phase6_gate_complete`: blocked by the runtime status gate.
 
+## In-flight state (2026-07-02)
+
+- The classifier backfill is ACTIVE: the `chart-classify-events` UDF is resumed
+  with ~11.4k notes enqueued, driven via the gateway API because the operator
+  cannot re-register a changed Function (hev/layer#148).
+- The embed Pipeline `chart-embed-gpu` is **temporarily paused**
+  (`spec.paused: true`, patched live) to free the single GPU node for the
+  classifier — the AWS "Running On-Demand G and VT instances" vCPU quota (4)
+  allows exactly one GPU node. **Resume embed when the backfill drains or the
+  quota lands**: `kubectl patch pipeline chart-embed-gpu -n chart --type=merge
+  -p '{"spec":{"paused":false}}'`.
+- A quota increase 4→16 vCPUs is filed (request `114eb0bc…`, us-east-1,
+  acct 186219257916) and sits in AWS support review (CASE_OPENED). Once it
+  lands, embed + classify run concurrently and this section should be removed.
+
 ## Main blockers
 
 - The full PMC-Patients target is 167,000 notes; the latest tracked full-corpus
@@ -147,6 +162,28 @@ Open Layer follow-ups from chart:
   until the classifier backfill runs.
 - `hev/layer#101` — `scaling.warmWindowSeconds` documented on the API page but
   missing from the CRD reference (`scaling-crd`/`pipeline-crd`/`function-crd`).
+- `hev/layer#143` — the ApiKey operator derives an invalid Secret name
+  (`apikey_<name>` with underscores), so declarative ApiKey minting never
+  reconciles; chart's key path stays imperative (`POST /v2/keys`) until it lands.
+- `hev/layer#144` — the gateway only loads Agent CRs from its own namespace;
+  the agentic-search Agent + `chart-openrouter` Secret are duplicated into ns
+  `layer` on layer-prod (the `chart`-namespace copies are the declarative twin).
+- `hev/layer#145` — entitlement namespace checks resolve against the default
+  store, not `search-store`; a minted key needs a mirror grant on
+  `vectorstore.turbopuffer-default` to read `chart-notes`.
+- `hev/layer#146` — `agent.<name>: {}` (the documented form) is rejected;
+  `scopes: [read]` is required (deploy/apikey.yaml carries the workaround).
+- `hev/layer#147` — the Agent planner strict-parses OpenRouter content, but
+  Anthropic-via-Bedrock ignores `response_format: json_object` and returns
+  fenced JSON (502). chart's Agent is pinned to `openai/gpt-4o-mini` /
+  `google/gemini-2.5-flash` until the parser is hardened.
+- `hev/layer#148` — the operator cannot update a registered UDF (the gateway
+  strips `worker.compute_class`, the CRD defaults it, and the 409 equality
+  check never passes), so every Function spec change bricks reconciliation.
+  chart's classifier is driven via the gateway API (resume/discover) and
+  `deploy/functions-events.yaml` omits `computeClass`; the CR still reports
+  GatewayRegistrationFailed, and `scaling.warmWindowSeconds` may not be
+  synced until this lands. (Also bites moment's three Functions.)
 
 Landed / consumed (kept for traceability):
 

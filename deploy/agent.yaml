@@ -21,8 +21,13 @@ metadata:
 spec:
   model:
     provider: openrouter
-    name: anthropic/claude-haiku-4-5
-    fallback: anthropic/claude-sonnet-4-6
+    # OpenRouter slugs use dots in version numbers (anthropic/claude-haiku-4.5),
+    # unlike the Anthropic API's hyphenated model ids. Anthropic models via
+    # OpenRouter ignore response_format json_object and return fenced JSON,
+    # which the gateway's planner rejects — pinned to JSON-mode-compliant
+    # models until that lands (hev/layer issue).
+    name: openai/gpt-4o-mini
+    fallback: google/gemini-2.5-flash
     apiKeySecretRef:
       name: chart-openrouter
       key: credential
