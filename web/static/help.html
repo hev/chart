@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>chart — how this demo works</title>
+  <style>
+    :root { --ink:#1a2230; --muted:#67768c; --line:#e3e8ef; --accent:#2156d6; --kw:#0a7d4d; --fused:#9a6b00; --sem:#2156d6; }
+    body { font:15px/1.55 ui-sans-serif,system-ui,-apple-system,sans-serif; color:var(--ink); margin:0; }
+    main { max-width:760px; margin:0 auto; padding:2rem 1.25rem; }
+    h1 { font-size:1.4rem; margin:0 0 .35rem; }
+    h2 { font-size:1.05rem; margin:2rem 0 .4rem; }
+    .site-header { position:sticky; top:0; z-index:10; background:rgba(255,255,255,.85); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border-bottom:1px solid var(--line); padding:1rem 1.25rem; }
+    .site-header .nav { max-width:860px; margin:0 auto; min-height:2rem; display:flex; justify-content:space-between; align-items:center; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.875rem; }
+    .wordmark { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:700; font-size:1.0625rem; letter-spacing:-.02em; display:inline-flex; align-items:center; color:var(--ink); text-decoration:none; }
+    .wordmark .cursor { display:inline-block; width:.5em; height:1em; background:#e25822; margin-left:.18em; vertical-align:text-bottom; animation:blink 1.2s steps(2) infinite; }
+    .wordmark .suffix { color:var(--muted); font-weight:500; margin-left:.4em; }
+    .nav-links { display:flex; gap:1.5rem; align-items:center; }
+    .nav-links a { color:var(--muted); text-decoration:none; }
+    .nav-links a:hover { color:#e25822; }
+    @keyframes blink { 0%,50% { opacity:1; } 51%,100% { opacity:0; } }
+    p.lede { color:var(--muted); margin:.25rem 0 1.2rem; }
+    a { color:var(--accent); }
+    .badge { display:inline-block; font-weight:600; font-size:.8rem; padding:.15rem .5rem; border-radius:6px; color:#fff; vertical-align:baseline; }
+    .badge.hybrid_text { background:var(--kw); } .badge.fused { background:var(--fused); } .badge.semantic { background:var(--sem); } .badge.agentic { background:#7c3aed; }
+    table { border-collapse:collapse; width:100%; font-size:.9rem; margin:.6rem 0; }
+    th, td { text-align:left; padding:.35rem .5rem; border-top:1px solid var(--line); vertical-align:top; }
+    th { color:var(--muted); font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; border-top:none; }
+    code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.85em; background:#f4f6fa; border-radius:4px; padding:.08rem .3rem; }
+    .doclink { font-size:.85rem; color:var(--muted); }
+    .notice { border:1px solid var(--line); border-left:3px solid #b45309; border-radius:8px; padding:.7rem .9rem; margin:1.4rem 0; font-size:.9rem; background:#fffdf8; }
+    footer { color:var(--muted); font-size:.78rem; margin-top:2.5rem; border-top:1px solid var(--line); padding-top:1rem; }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav">
+      <a class="wordmark" href="https://hevlayer.com" target="_blank" rel="noopener" aria-label="hev layer — home">hev<span class="cursor" aria-hidden="true"></span><span class="suffix">layer</span></a>
+      <div class="nav-links">
+        <a href="/">search</a>
+        <a href="https://hevlayer.com/docs/api/introduction/" target="_blank" rel="noopener">docs</a>
+      </div>
+    </nav>
+  </header>
+  <main>
+    <h1>How this demo works</h1>
+    <p class="lede">chart searches a library of published, de-identified patient case reports
+      (<a href="https://huggingface.co/datasets/zhengyun21/PMC-Patients" target="_blank" rel="noreferrer">PMC-Patients</a>).
+      Every search feature you see is a <a href="https://hevlayer.com" target="_blank" rel="noreferrer">hev layer</a>
+      gateway feature — the app posts queries and renders the gateway's decisions. It adds no search code of its own.</p>
+
+    <h2>Query routing</h2>
+    <p>One box, three retrieval strategies. The gateway's <code>Auto</code> router reads each query and
+      picks <span class="badge hybrid_text">hybrid_text</span> (exact/lexical with typo tolerance — a drug, a dose,
+      an abbreviation), <span class="badge fused">fused</span> (both retrieval legs, rank-merged — a clinical phrase),
+      or <span class="badge semantic">semantic</span> (meaning-based over the note embedding — a whole clinical
+      picture in prose). Clinical queries are sharply bimodal — token lookups and prose pictures — which is why the
+      decision visibly matters here. The badge above the results is the gateway's own routing decision, echoed back;
+      the demo renders it rather than re-deciding anything.</p>
+    <p class="doclink">Docs: <a href="https://hevlayer.com/docs/api/query/#query-routing" target="_blank" rel="noreferrer">Query routing</a></p>
+
+    <h2>Hybrid text</h2>
+    <p>The lexical strategy is more than BM25: <code>HybridText</code> fuses exact full-text matching with
+      per-token fuzzy matching, so <code>aspirn</code> still finds aspirin — and when a fuzzy match rescues a
+      result, the gateway says so in the response (surfacing). The <span class="badge fused">fused</span> route
+      runs this lexical leg and the semantic leg together and merges them with reciprocal-rank fusion, upstream
+      of the app. The facet rail's per-search counts come from the same machinery: a scan counts the full match
+      set for the active route, not just the rows on screen.</p>
+    <p class="doclink">Docs: <a href="https://hevlayer.com/docs/api/query/#hybrid-text-fusion" target="_blank" rel="noreferrer">Hybrid text fusion</a>
+      · <a href="https://hevlayer.com/docs/api/scans/" target="_blank" rel="noreferrer">Scans</a></p>
+
+    <h2>Agentic search</h2>
+    <p>The <strong>Agentic search</strong> toggle sends the same query through a configured reasoning loop — a
+      hev layer <code>Agent</code> — instead of the single-hop router. A model reformulates the query into
+      variants, fans them out for recall over the corpus, grades the candidates for relevance, and returns the
+      standard row shape. It is slower and better-ranked, and it shows its work: the sidebar becomes the run
+      inspector (the planned variants and what each contributed), and each hit carries the variant that surfaced
+      it plus its graded relevance. Facet filters don't apply in this mode — the agent infers its own filters,
+      visible in its plan.</p>
+    <p class="doclink">Docs: <a href="https://hevlayer.com/docs/api/agents/" target="_blank" rel="noreferrer">Agents API</a>
+      · <a href="https://hevlayer.com/docs/kubernetes/agent-crd/" target="_blank" rel="noreferrer">Agent resource</a></p>
+
+    <h2>Clinical-event cascade (UDF with a self-hosted model)</h2>
+    <p>The <em>Clinical event</em>, <em>Specialty</em>, and <em>Diagnosis</em> facets are not in the source data —
+      they are written back by a user-defined function running an open-weight <strong>Gemma</strong> model on
+      cluster GPUs (hev layer's <code>Function</code> runtime: self-hosted, scale-to-zero, guided decoding). The
+      cascade reads each note once and extracts clinical events — medication discontinuation is the headline —
+      plus the facet labels in the same pass: one GPU pass, many labels. It composes with routing: an
+      <code>events</code> filter over a routed search answers questions like <em>"who discontinued a statin due
+      to an adverse reaction?"</em>. The cascade runs as a backfill; facets appear as it progresses through the
+      corpus.</p>
+    <p class="doclink">Docs: <a href="https://hevlayer.com/docs/kubernetes/function-crd/" target="_blank" rel="noreferrer">Function resource</a>
+      · <a href="https://hevlayer.com/docs/kubernetes/function-crd/#gpu-classifier" target="_blank" rel="noreferrer">GPU classifier</a></p>
+
+    <div class="notice"><strong>What this data is — and isn't.</strong> Notes are published, de-identified case
+      reports from PMC-Patients, licensed
+      <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noreferrer">CC-BY-NC-SA-4.0</a>.
+      Published case reports are not raw EHR, and this demo is <strong>not for clinical use</strong> and gives no
+      medical advice. Every result deep-links to its source report on PubMed.</div>
+
+    <footer>
+      A <a href="https://hevlayer.com" target="_blank" rel="noreferrer">hev layer</a> demo.
+      Routing, hybrid fusion, agents, snapshots, scans, and the Function runtime are gateway features —
+      the app composes them.
+    </footer>
+  </main>
+</body>
+</html>

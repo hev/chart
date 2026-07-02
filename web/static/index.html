@@ -29,11 +29,19 @@
     .agentic-toggle { display:flex; align-items:center; gap:.45rem; margin:.5rem 0 0; font-size:.85rem; color:var(--muted); cursor:pointer; user-select:none; }
     .agentic-toggle input { accent-color:#7c3aed; }
     .agentic-toggle .hint { font-size:.78rem; }
-    #inspector .plan { margin:.5rem 0 0; padding:0; list-style:none; font-size:.84rem; }
-    #inspector .plan li { padding:.12rem 0; color:var(--muted); }
-    #inspector .plan .pq { color:var(--ink); font-style:italic; }
-    #inspector .plan .proute { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.76rem; color:#7c3aed; }
     .hit .agentmeta { color:#7c3aed; font-size:.76rem; }
+    /* Agentic rail: the sidebar becomes the run inspector — one card per planned
+       variant, with what each contributed to the final ranking. */
+    .rail .avariant { border:1px solid var(--line); border-radius:8px; padding:.5rem .55rem; margin:0 0 .5rem; font-size:.82rem; }
+    .rail .avariant .aq { font-style:italic; color:var(--ink); display:block; }
+    .rail .avariant .aroute { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.72rem; color:#7c3aed; }
+    .rail .avariant .astats { color:var(--muted); font-size:.76rem; margin-top:.2rem; font-variant-numeric:tabular-nums; }
+    .rail .avariant .afilters { color:var(--muted); font-size:.72rem; margin-top:.15rem; word-break:break-word; }
+    .rail .arun { color:var(--muted); font-size:.78rem; margin:.15rem 0 .6rem; }
+    /* Loading state: braille spinner + a cycling whimsical gerund (à la hev ask). */
+    .thinking { display:inline-flex; align-items:baseline; gap:.55rem; color:var(--muted); }
+    .thinking .spin { display:inline-block; width:1ch; color:#7c3aed; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:1.05rem; line-height:1; }
+    .thinking .verb { font-variant-numeric:tabular-nums; }
     #inspector { border:1px solid var(--line); border-radius:10px; padding:.9rem; margin:1rem 0; background:#fbfcfe; display:none; }
     #inspector .note { color:var(--muted); margin-top:.4rem; }
     #active { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem; margin:.25rem 0 1rem; }
@@ -79,6 +87,7 @@
     <nav class="nav">
       <a class="wordmark" href="https://hevlayer.com" target="_blank" rel="noopener" aria-label="hev layer — home">hev<span class="cursor" aria-hidden="true"></span><span class="suffix">layer</span></a>
       <div class="nav-links">
+        <a href="/help.html">how it works</a>
         <a href="https://hevlayer.com/docs/api/query/#query-routing" target="_blank" rel="noopener">docs</a>
       </div>
     </nav>
@@ -122,9 +131,10 @@
       <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noreferrer">CC-BY-NC-SA-4.0</a>.
       This is a search demo, <strong>not raw EHR and not for clinical use</strong>.
       <br />
-      Routing, hybrid fusion, snapshots, and the live facet counts are all
+      Routing, hybrid fusion, agentic search, snapshots, and the live facet counts are all
       <a href="https://hevlayer.com" target="_blank" rel="noreferrer">hev layer</a>
       gateway features — the app adds no search code of its own.
+      <a href="/help.html">How this demo works →</a>
     </footer>
   </main>
 
@@ -142,6 +152,7 @@
     let lastQuery = '';
     let lastNote = '';
     let facetData = null;          // corpus-wide snapshot rail (stable value set + provenance)
+    let agenticInfo = null;        // last agentic run (agent echo + merge) — repurposes the rail
     let liveCounts = null;         // per-search counts from the Scans API (or null = show corpus)
     let countsNote = '';           // why live counts were withheld (the fuzzy-scan gap), shown in the rail foot
     let countsSeq = 0;             // guards against a stale scan landing after a newer search
@@ -220,32 +231,37 @@
       const q = lastQuery.trim();
       const params = filterParams();
       if (!q && !params.length) {
+        stopThinking();
         results.innerHTML = '';
         inspector.style.display = 'none';
         liveCounts = null;
         countsNote = '';
         railCounting = false;
+        agenticInfo = null;
         countsSeq += 1; // cancel any in-flight scan; fall back to the corpus rail
         renderRail();
         return;
       }
-      results.innerHTML = '<div class="empty">Searching…</div>';
+      const agentic = agenticMode && q;
+      if (agentic) startThinking(); else results.innerHTML = '<div class="empty">Searching…</div>';
       const parts = [];
       if (q) parts.push('q=' + encodeURIComponent(q));
       parts.push(...params);
       const search = parts.join('&');
-      const agentic = agenticMode && q;
       try {
         const data = await apiJson('/api/search?' + search + '&top_k=' + FETCH_DEPTH + (agentic ? '&agentic=1' : ''));
+        stopThinking();
         if (agentic) {
+          // Facet filters (and the per-search rail scan) don't apply to agentic
+          // search — the rail becomes the run inspector instead (renderAgentRail).
+          agenticInfo = data;
           renderAgentic(data);
           renderResults(data.rows || []);
-          // Facet filters (and the per-search rail scan) don't apply to agentic
-          // search — the agent plans its own filters, echoed in the inspector.
           liveCounts = null; countsNote = ''; railCounting = false; countsSeq += 1;
           renderRail();
           return;
         }
+        agenticInfo = null;
         renderRouting(data, lastNote);
         renderResults(data.rows || []);
         // The Scans API showcase: count the full match set per facet, async, so the
@@ -254,13 +270,51 @@
         const routing = data.routing || {};
         refreshCounts(search, routing.route || routing.strategy || '');
       } catch (err) {
+        stopThinking();
         results.innerHTML = `<div class="empty">Search failed: ${escapeHtml(err.message || err)}</div>`;
       }
     }
 
+    // --- Agentic loading state (à la hev ask's SearchOverlay) ----------------
+    // Braille spinner — reads as a smooth rotating glyph in monospace.
+    const SPIN_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+    // Whimsical gerunds cycled while the reasoning loop runs — leaning clinical.
+    const THINKING_VERBS = [
+      'Rounding', 'Triaging', 'Auscultating', 'Charting', 'Consulting', 'Palpating',
+      'Percolating', 'Noodling', 'Marinating', 'Rummaging', 'Distilling', 'Sifting',
+      'Untangling', 'Pondering', 'Mulling', 'Cross-referencing', 'Differentiating',
+      'Second-guessing', 'Titrating', 'Deliberating',
+    ];
+    let thinkTimer;
+    function startThinking() {
+      stopThinking();
+      results.innerHTML = '<div class="empty"><span class="thinking"><span class="spin"></span><span class="verb"></span></span></div>';
+      const spin = results.querySelector('.spin');
+      const verb = results.querySelector('.verb');
+      // Start on a different verb each time so repeat searches feel alive.
+      let vi = Math.floor(Math.random() * THINKING_VERBS.length);
+      const setVerb = () => { verb.textContent = `${THINKING_VERBS[vi % THINKING_VERBS.length]}…`; };
+      spin.textContent = SPIN_FRAMES[0];
+      setVerb();
+      const reduce = typeof window.matchMedia === 'function'
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduce) return; // honour reduced-motion: static spinner + verb, no churn
+      let fi = 0, tick = 0;
+      thinkTimer = window.setInterval(() => {
+        fi = (fi + 1) % SPIN_FRAMES.length;
+        spin.textContent = SPIN_FRAMES[fi];
+        // ~18 frames × 90ms ≈ 1.6s per verb.
+        if (++tick % 18 === 0) { vi += 1; setVerb(); }
+      }, 90);
+    }
+    function stopThinking() {
+      if (thinkTimer !== undefined) { window.clearInterval(thinkTimer); thinkTimer = undefined; }
+    }
+
     // The agentic twin of renderRouting: the badge is the mode, the signals are
-    // the loop's budget spend, and the note is the agent's own plan — the planned
-    // query variants (with inferred filters) that produced the ranking.
+    // the loop's budget spend. The plan itself lives in the rail (renderAgentRail)
+    // — the facet counts are meaningless in agentic mode (the agent infers its own
+    // filters), so the sidebar becomes the run inspector instead.
     function renderAgentic(data) {
       const agent = data.agent || {};
       inspector.style.display = 'block';
@@ -276,14 +330,49 @@
       ].filter(Boolean).join(' · ');
       const note = document.getElementById('note');
       const filterWarn = activeFilters.size
-        ? '<div>Facet filters don’t apply to agentic search — the agent infers its own, shown in its plan.</div>' : '';
-      const plan = (agent.queries || []).map((pq) => {
-        const filters = pq.filters ? ` · filters ${escapeHtml(JSON.stringify(pq.filters))}` : '';
-        return `<li><span class="pq">“${escapeHtml(pq.query || '')}”</span> <span class="proute">${escapeHtml(pq.rankBy || '')}</span>${filters}</li>`;
+        ? 'Facet filters don’t apply to agentic search — the agent infers its own, shown in its plan (sidebar). '
+        : '';
+      note.textContent = filterWarn + 'The reasoning loop planned query variants, fanned them out for recall, and graded relevance — the plan and what each variant contributed are in the sidebar.';
+    }
+
+    // The rail in agentic mode: one card per planned variant, with the stats the
+    // provenance echo supports today — rows it surfaced in the final ranking and
+    // its graded relevance. Per-variant *match* counts / per-leg timing need
+    // gateway support (a richer agent echo) and are deliberately absent rather
+    // than approximated with a facet scan that doesn't describe this ranking.
+    function renderAgentRail() {
+      const agent = (agenticInfo && agenticInfo.agent) || {};
+      const queries = agent.queries || [];
+      const head = '<div class="railhead">Agentic run</div>';
+      const runBits = [];
+      if (queries.length) runBits.push(`${queries.length} planned ${queries.length === 1 ? 'variant' : 'variants'}`);
+      if (agent.recallDepth) runBits.push(`recall depth ${agent.recallDepth}`);
+      if (typeof agent.relevanceWeight === 'number') runBits.push(`relevance weight ${agent.relevanceWeight}`);
+      const run = runBits.length ? `<div class="arun">${escapeHtml(runBits.join(' · '))}</div>` : '';
+      // What each variant contributed, from per-row $agent provenance.
+      const byVariant = new Map();
+      for (const row of allRows) {
+        const ag = row && row['$agent'];
+        if (!ag || typeof ag.queryIndex !== 'number') continue;
+        let s = byVariant.get(ag.queryIndex);
+        if (!s) { s = { rows: 0, relSum: 0, relN: 0 }; byVariant.set(ag.queryIndex, s); }
+        s.rows += 1;
+        if (typeof ag.relevanceScore === 'number') { s.relSum += ag.relevanceScore; s.relN += 1; }
+      }
+      const cards = queries.map((pq, i) => {
+        const s = byVariant.get(i);
+        const stats = s
+          ? `surfaced ${s.rows} of the top ${allRows.length}${s.relN ? ` · avg relevance ${(s.relSum / s.relN).toFixed(2)}` : ''}`
+          : 'no rows in the final ranking';
+        const filters = pq.filters
+          ? `<div class="afilters">filters ${escapeHtml(JSON.stringify(pq.filters))}</div>` : '';
+        return `<div class="avariant"><span class="aq">“${escapeHtml(pq.query || '')}”</span>`
+          + `<span class="aroute">${escapeHtml(pq.rankBy || '')}</span>`
+          + `<div class="astats">${escapeHtml(stats)}</div>${filters}</div>`;
       }).join('');
-      note.innerHTML = filterWarn + (plan
-        ? `The agent’s plan — reformulated variants fanned out for recall:<ul class="plan">${plan}</ul>`
-        : 'Ranked by the configured reasoning loop (provenance echo off).');
+      const body = cards || '<div class="arun">Provenance echo is off for this Agent — no plan to show.</div>';
+      const foot = '<div class="railfoot">agent echo · this run · facet counts don’t apply in agentic mode</div>';
+      rail.innerHTML = head + run + body + foot;
     }
 
     async function refreshCounts(search, route = '') {
@@ -320,8 +409,10 @@
       results.innerHTML = '<div class="empty">Finding similar patients…</div>';
       try {
         const data = await apiJson('/api/similar/' + encodeURIComponent(id) + '?top_k=' + FETCH_DEPTH);
+        agenticInfo = null; // a similar-lookup is a routed query; restore the facet rail
         renderRouting(data, 'Nearest-neighbor lookup from the selected patient id.');
         renderResults(data.rows || []);
+        renderRail();
       } catch (err) {
         results.innerHTML = `<div class="empty">Similar-patient lookup failed: ${escapeHtml(err.message || err)}</div>`;
       }
@@ -461,6 +552,7 @@
     }
 
     function renderRail() {
+      if (agenticInfo) { renderAgentRail(); return; }
       if (!facetData) { rail.innerHTML = ''; return; }
       // Drop facets with nothing to show — e.g. the UDF-writeback fields (events,
       // specialty, diagnosis) before the enrichment cascade has populated them — so

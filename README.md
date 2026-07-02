@@ -39,6 +39,18 @@ scores. Same "show the decision" DNA, one level up. The backing store is the
 first-party **hev search** engine behind the gateway (`deploy/vectorstore.yaml`,
 `kind: search`).
 
+## The features, and where they're documented
+
+Everything visible in the UI is a gateway feature; the app composes them. The
+same tour is served by the app itself at [`/help.html`](web/static/help.html).
+
+| Feature | What you see | hev layer docs |
+|---|---|---|
+| **Query routing** | The `Auto` router picks `hybrid_text` / `fused` / `semantic` per query; the badge is the gateway's own decision, echoed back | [Query routing](https://hevlayer.com/docs/api/query/#query-routing) |
+| **Hybrid text** | BM25 + per-token fuzzy fused in one lexical leg (`aspirn` finds aspirin, and the response says a fuzzy match surfaced it); `fused` merges it with the semantic leg via RRF; the rail's per-search counts come from the same machinery (Scans) | [Hybrid text fusion](https://hevlayer.com/docs/api/query/#hybrid-text-fusion) · [Scans](https://hevlayer.com/docs/api/scans/) |
+| **Agentic search** | The toggle runs the query through a configured `Agent` (reasoning loop): reformulate → fan out → grade; the sidebar becomes the run inspector and each hit carries `$agent` provenance | [Agents API](https://hevlayer.com/docs/api/agents/) · [Agent CRD](https://hevlayer.com/docs/kubernetes/agent-crd/) |
+| **UDF cascade (self-hosted model)** | `events`/`specialty`/`diagnosis_category` facets are written back by a Gemma classifier running on cluster GPUs via the `Function` runtime (scale-to-zero, guided decoding) — one GPU pass, many labels, run as a backfill | [Function CRD](https://hevlayer.com/docs/kubernetes/function-crd/) · [GPU classifier](https://hevlayer.com/docs/kubernetes/function-crd/#gpu-classifier) |
+
 ## Two things this demo proves
 
 1. **Query routing, with a number.** chart is the first Layer demo with **real
