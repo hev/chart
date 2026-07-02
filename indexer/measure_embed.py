@@ -25,7 +25,7 @@ def production_path_report() -> dict[str, Any]:
         "pipeline_cr": "chart-embed-gpu",
         "module": "indexer.embed",
         "compute_class": "gpu",
-        "image": "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260624-dedupe2",
+        "image": "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1",
         "allow_full_cpu_index": False,
     }
 

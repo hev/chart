@@ -184,7 +184,7 @@ def _embed_production_path_complete(report: dict[str, Any]) -> bool:
         path.get("pipeline_cr") == "chart-embed-gpu"
         and path.get("module") == "indexer.embed"
         and path.get("compute_class") == "gpu"
-        and path.get("image") == "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260624-dedupe2"
+        and path.get("image") == "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1"
         and path.get("allow_full_cpu_index") is False
     )
 
@@ -245,9 +245,9 @@ def _embed_budget_failures(report: dict[str, Any]) -> list[str]:
         failures.append(f"production_path.module={path.get('module')!r}, expected 'indexer.embed'")
     if path.get("compute_class") != "gpu":
         failures.append(f"production_path.compute_class={path.get('compute_class')!r}, expected 'gpu'")
-    if path.get("image") != "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260624-dedupe2":
+    if path.get("image") != "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1":
         failures.append(
-            f"production_path.image={path.get('image')!r}, expected '186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260624-dedupe2'"
+            f"production_path.image={path.get('image')!r}, expected '186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1'"
         )
     if path.get("allow_full_cpu_index") is not False:
         failures.append("production_path.allow_full_cpu_index must be false")
@@ -1121,7 +1121,7 @@ def _runtime_status_complete(
         and targets.get("embed_pipeline_cr") == "chart-embed-gpu"
         and targets.get("embed_compute_class") == "gpu"
         and targets.get("classifier_compute_class") == "gpu"
-        and targets.get("embed_image") == "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260624-dedupe2"
+        and targets.get("embed_image") == "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1"
         and targets.get("classifier_image") == "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260624"
         and target_rows >= 167000
         and pipeline.get("pipeline_id") == targets.get("pipeline_id")
@@ -1205,9 +1205,9 @@ def _runtime_status_failures(
         failures.append(f"targets.embed_compute_class={targets.get('embed_compute_class')!r}, expected 'gpu'")
     if targets.get("classifier_compute_class") != "gpu":
         failures.append(f"targets.classifier_compute_class={targets.get('classifier_compute_class')!r}, expected 'gpu'")
-    if targets.get("embed_image") != "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260624-dedupe2":
+    if targets.get("embed_image") != "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1":
         failures.append(
-            f"targets.embed_image={targets.get('embed_image')!r}, expected '186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260624-dedupe2'"
+            f"targets.embed_image={targets.get('embed_image')!r}, expected '186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1'"
         )
     if targets.get("classifier_image") != "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260624":
         failures.append(

@@ -110,7 +110,7 @@ def phase6_targets(**overrides):
         "full_corpus_notes": 167000,
         "embed_pipeline_cr": "chart-embed-gpu",
         "embed_compute_class": "gpu",
-        "embed_image": "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260624-dedupe2",
+        "embed_image": "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1",
         "classifier_compute_class": "gpu",
         "classifier_image": "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260624",
     }
@@ -123,7 +123,7 @@ def embed_production_path(**overrides):
         "pipeline_cr": "chart-embed-gpu",
         "module": "indexer.embed",
         "compute_class": "gpu",
-        "image": "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260624-dedupe2",
+        "image": "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1",
         "allow_full_cpu_index": False,
     }
     path.update(overrides)
@@ -654,7 +654,7 @@ def test_plan_audit_marks_complete_from_accepted_reports(tmp_path) -> None:
         {
             "mode": "push",
             "status": "completed",
-            "embed_image": "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260624-dedupe2",
+            "embed_image": "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1",
             "classifier_image": "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260624",
             "embed_command": [
                 "docker",
@@ -662,7 +662,7 @@ def test_plan_audit_marks_complete_from_accepted_reports(tmp_path) -> None:
                 "build",
                 "--push",
                 "-t",
-                "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260624-dedupe2",
+                "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1",
                 ".",
             ],
             "classifier_command": [
@@ -2060,7 +2060,7 @@ def test_plan_audit_surfaces_gpu_build_error_details(tmp_path) -> None:
         {
             "mode": "push",
             "status": "failed",
-            "embed_image": "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260624-dedupe2",
+            "embed_image": "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1",
             "classifier_image": "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260624",
             "embed_command": [
                 "docker",
@@ -2068,7 +2068,7 @@ def test_plan_audit_surfaces_gpu_build_error_details(tmp_path) -> None:
                 "build",
                 "--push",
                 "-t",
-                "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260624-dedupe2",
+                "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1",
                 ".",
             ],
             "classifier_command": [
@@ -2098,7 +2098,7 @@ def test_plan_audit_rejects_completed_gpu_build_report_with_error(tmp_path) -> N
         {
             "mode": "push",
             "status": "completed",
-            "embed_image": "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260624-dedupe2",
+            "embed_image": "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1",
             "classifier_image": "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260624",
             "embed_command": [
                 "docker",
@@ -2106,7 +2106,7 @@ def test_plan_audit_rejects_completed_gpu_build_report_with_error(tmp_path) -> N
                 "build",
                 "--push",
                 "-t",
-                "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260624-dedupe2",
+                "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1",
                 ".",
             ],
             "classifier_command": [

@@ -136,7 +136,7 @@ async def test_collect_status_reports_explicit_phase6_targets(monkeypatch) -> No
         "full_corpus_notes": 167000,
         "embed_pipeline_cr": "chart-embed-gpu",
         "embed_compute_class": "gpu",
-        "embed_image": "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260624-dedupe2",
+        "embed_image": "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1",
         "classifier_compute_class": "gpu",
         "classifier_image": "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260624",
     }

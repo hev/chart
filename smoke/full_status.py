@@ -17,7 +17,7 @@ from chart_common.gateway import FACET_FIELDS, close_client, latest_facets, make
 DEFAULT_UDF_ID = "chart-classify-events"
 DEFAULT_PIPELINE_ID = "chart-notes"
 DEFAULT_EMBED_PIPELINE_CR = "chart-embed-gpu"
-DEFAULT_EMBED_IMAGE = "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260624-dedupe2"
+DEFAULT_EMBED_IMAGE = "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1"
 DEFAULT_CLASSIFIER_IMAGE = "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260624"
 DEFAULT_GPU_COMPUTE_CLASS = "gpu"
 DEFAULT_EMBED_BUDGET_REPORT = "eval/out/embed-budget.json"
