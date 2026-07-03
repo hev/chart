@@ -2,35 +2,29 @@
 #
 # Declarative equivalent of chart_common/gateway.py:make_client() — the base URL
 # + bearer token the indexer and search backends pass at runtime. In a full
-# cluster the gateway reads this CR instead. For kind=search, inbound auth uses
-# Layer-issued scoped keys so the hev search data/admin tokens stay upstream-only
-# (the credentials live in a Secret, never in the CR or this repo). See
-# docs/kubernetes/vectorstore-crd in ../layer and the shelf cutover (hev/layer#134).
+# cluster the gateway reads this CR instead.
+#
+# Currently kind=turbopuffer — matches the CR actually applied in the `chart`
+# namespace (`turbopuffer-default`, created 2026-06-25). A kind=search cutover
+# was attempted (hev/layer#134) but the search-kind manifest was never actually
+# applied to this namespace; the namespace is still live on Turbopuffer, so this
+# file was reverted to match reality rather than leave the repo describing a
+# backend the cluster isn't using. See docs/kubernetes/vectorstore-crd in
+# ../layer before re-attempting the cutover.
 apiVersion: hevlayer.com/v1alpha1
 kind: VectorStore
 metadata:
-  name: search-default
+  name: turbopuffer-default
   namespace: chart
 spec:
-  kind: search
+  kind: turbopuffer
   default: true
   endpoint:
-    url: http://hevsearch.chart.svc.cluster.local:3000
+    url: https://aws-us-east-1.turbopuffer.com
     region: aws-us-east-1
-  search:
-    adminCredential:
-      secretRef:
-        name: chart-hevsearch
-        key: admin-api-key
   credential:
     secretRef:
-      name: chart-hevsearch
-      key: data-api-key
+      name: chart-turbopuffer
+      key: credential
   inboundAuth:
-    mode: keys
-    keys:
-      - name: chart-notes
-        scopes: [read, write]
-        secretRef:
-          name: chart-layer-inbound
-          key: api-key
+    mode: deriveFromStore

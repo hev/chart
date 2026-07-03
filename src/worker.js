@@ -9,8 +9,11 @@ const INCLUDE = [
   "gender",
   "specialty",
   "diagnosis_category",
+  "body_system",
+  "chief_complaint",
   "events",
   "has_med_discontinuation",
+  "has_adverse_event",
   "discontinuation_reason",
   "similar_patient_ids",
 ];
@@ -153,10 +156,11 @@ async function facets(request, env, url) {
     for (const field of [...wanted]) {
       const column = (body.fields || []).find((candidate) => candidate.name === field);
       if (!column) continue;
-      const values = [...(column.values || [])]
-        .sort((a, b) => (b.n || 0) - (a.n || 0))
-        .slice(0, 14)
-        .map((value) => ({ value: value.v, count: value.n }));
+      const values = unnestArrayFacets(
+        (column.values || []).map((value) => ({ value: value.v, count: value.n || 0 })),
+      )
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 14);
       out[field] = {
         values,
         provenance: {
@@ -169,6 +173,28 @@ async function facets(request, env, url) {
     }
   }
   return json(out);
+}
+
+// Explode serialized-array facet buckets into per-element counts. Snapshot
+// histograms over a []string column bucket by the whole JSON-serialized array
+// (hev/layer#151 — the values-mode scan unnests, the snapshot writer doesn't).
+// Element count = Σ n over buckets containing it (exact); scalars pass through,
+// empty arrays contribute nothing. Mirrors chart_common.gateway.unnest_array_facets.
+function unnestArrayFacets(values) {
+  const counts = new Map();
+  for (const { value, count } of values) {
+    let elements = [value];
+    if (typeof value === "string" && value.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) elements = parsed.filter((e) => typeof e === "string");
+      } catch (_) {
+        // not JSON — keep the raw value
+      }
+    }
+    for (const element of elements) counts.set(element, (counts.get(element) || 0) + count);
+  }
+  return [...counts].map(([value, count]) => ({ value, count }));
 }
 
 // Live facet counts for the current search — the Scans API showcase. Slower than
@@ -383,6 +409,9 @@ async function gatewayFetch(env, path, init = {}) {
   }
   const response = await fetch(`${gatewayUrl(env)}${path}`, {
     ...init,
+    // A restarting gateway can black-hole a connection; fail fast so the UI
+    // renders an error instead of an indefinite "Searching…".
+    signal: AbortSignal.timeout(30_000),
     headers: {
       ...(init.headers || {}),
       authorization: `Bearer ${env.LAYER_GATEWAY_API_KEY}`,

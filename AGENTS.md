@@ -116,6 +116,22 @@ Failing or blocked required gates:
 
 ## In-flight state (2026-07-03)
 
+- **hev/layer#151 reopened (evening pass):** the facet-unnest fix (`e706c73`)
+  was rolled out of prod by the 14:15 UTC `gh150-marker-guard` gateway deploy
+  (image built from `86b8c90`, the fix's parent). A fresh `events` snapshot
+  still buckets serialized arrays. Both chart backends now unnest snapshot
+  array buckets client-side (`chart_common/gateway.py:unnest_array_facets`,
+  mirrored in `src/worker.js`) — exact counts, no-op once the gateway fix
+  redeploys. Serving image `mesh:chart-search-20260703` is live with this.
+- **hev/layer#152 filed:** today's layer-ns redeploys (13:15–14:15 UTC)
+  black-holed/502'd customer traffic; a browser search hung indefinitely.
+  chart hardening shipped alongside: 30s `AbortSignal.timeout` on every UI
+  fetch, and the FastAPI backend treats httpx transport errors as transient
+  (retry → clean 502, no more 500 tracebacks).
+- **Live `chart-notes` schema trimmed** (schema-only write, now also pinned in
+  `SCHEMA`): `title`/`pmid`/`age`/`chunk_id`/`chunk_index`/`patient_uid` are
+  `filterable: false`; only the rail facets, cascade booleans, and `phi_flag`
+  stay filterable.
 - The GPU vCPU quota bump landed (4→16, acct 186219257916/us-east-1);
   `chart-embed-gpu` and `hev-shop-embed` are both **unpaused** and running
   again. hev-shop's worker still spins on its three poison documents

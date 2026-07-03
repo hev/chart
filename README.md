@@ -78,9 +78,13 @@ on marginal cost while keeping the data in-cluster:
 |---|---|---|
 | Haiku 4.5 realtime | ~$31 | ~$460 |
 | Haiku 4.5 **Batch** (the baseline) | ~$16 | ~$235 |
-| **Cascade** — Gemma-2-9B on one `g5.xlarge` ($1.01/hr), batched | **~$3–6** | **~$40–80** |
+| **Cascade** — Gemma-2-9B, 2× `g5.xlarge` ($1.01/hr each), **measured** | **$8.2** | **~$120** |
 
-**~4–5× cheaper than Haiku Batch**, with three structural reasons it holds up:
+**Measured ~2× cheaper than Haiku Batch** (11,373 notes in ~4h at 48–58
+notes/min across two GPUs, zero failures: $8.10 GPU + $0.13 Layer-metered
+writes/scans/storage — the earlier ~$3–6 projection assumed larger claim
+sizes; `batchSize` is still 16 pending hev/layer#148, so there's 2–3×
+throughput headroom left on the table). Three structural reasons it holds up:
 
 - **One pass, many labels.** The cascade derives `events`, `specialty`,
   `diagnosis_category`, `has_med_discontinuation`, and the discontinuation

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 from typing import Any
 
@@ -27,20 +28,30 @@ SNAPSHOT_IN_PROGRESS = {"queued", "pending", "running"}
 # Explicit schema for the columns the backing store can't (or shouldn't) infer.
 #  - text: the FTS + fuzzy field the Auto router ranks over (RFC 0022/0057) —
 #    the keyword/fuzzy route for drug names, codes, abbreviations, and typos.
-#  - title / source_url: display + deep-link; source_url non-filterable.
 #  - the clinical facets are []string / string; pinned so the rail is stable
 #    regardless of which row is seen first, and regardless of whether the
 #    enrichment UDFs (functions/) have run yet.
 #  - phi_flag: operational (scan-phi writeback), not a search facet.
+#  - filterable only where a filter is actually planned (the rail facets, the
+#    cascade booleans, phi_flag, and the `events Eq null` backfill claim).
+#    Display/deep-link/plumbing columns (title, pmid, source_url, age, and the
+#    chunk-model columns chunk_id/chunk_index/patient_uid) are pinned
+#    filterable=False so the store doesn't index-by-default what nothing
+#    filters on. age filters happen through age_band.
 # The vector column infers from the rows; distance_metric is set on the write.
 SCHEMA: dict[str, Any] = {
     "text": {"type": "string", "full_text_search": True, "fuzzy": True},
-    "title": {"type": "string"},
+    "title": {"type": "string", "filterable": False},
     "source_url": {"type": "string", "filterable": False},
-    "pmid": {"type": "string"},
-    "age": {"type": "int"},
+    "pmid": {"type": "string", "filterable": False},
+    "age": {"type": "int", "filterable": False},
     "age_band": {"type": "string"},
     "gender": {"type": "string"},
+    # Chunk-model plumbing (RFC 0056): identity/ordering for the embed pipeline,
+    # never a filter surface.
+    "chunk_id": {"type": "string", "filterable": False},
+    "chunk_index": {"type": "int", "filterable": False},
+    "patient_uid": {"type": "string", "filterable": False},
     # UDF writeback (functions/) — declared up front so the facet columns are
     # stable before/after enrichment runs.
     "specialty": {"type": "string"},
@@ -219,6 +230,32 @@ async def scan_facet_values(
     return [{"value": _read(v, "v"), "count": _read(v, "n")} for v in values]
 
 
+def unnest_array_facets(values: list[dict]) -> list[dict]:
+    """Explode serialized-array facet buckets into per-element counts.
+
+    Snapshot histograms over a `[]string` column currently bucket by the whole
+    JSON-serialized array ('["a","b"]' n=7) instead of per element (hev/layer#151
+    — the live values-mode scan already unnests, the snapshot writer doesn't). A
+    doc counts once per element it carries, so element count = Σ n over the
+    buckets containing it: exploding here is exact, not an approximation. Scalar
+    values pass through (merging with exploded elements, so a post-fix snapshot
+    is a no-op) and empty arrays contribute nothing."""
+    counts: dict[str, int] = {}
+    for entry in values:
+        value, count = entry.get("value"), entry.get("count") or 0
+        elements = [value]
+        if isinstance(value, str) and value.startswith("["):
+            try:
+                parsed = json.loads(value)
+            except ValueError:
+                parsed = None
+            if isinstance(parsed, list):
+                elements = [e for e in parsed if isinstance(e, str)]
+        for element in elements:
+            counts[element] = counts.get(element, 0) + count
+    return [{"value": v, "count": n} for v, n in counts.items()]
+
+
 async def latest_facets(
     layer: AsyncHevlayer, namespace: str, *, field: str, limit: int = 14, history_limit: int = 20
 ) -> tuple[list[dict] | None, dict | None]:
@@ -233,8 +270,8 @@ async def latest_facets(
         column = next((f for f in _read(body, "fields", []) if _read(f, "name") == field), None)
         if column is None:
             continue
-        top = sorted(_read(column, "values", []), key=lambda v: _read(v, "n", 0), reverse=True)[:limit]
-        facets = [{"value": _read(v, "v"), "count": _read(v, "n")} for v in top]
+        raw = [{"value": _read(v, "v"), "count": _read(v, "n", 0)} for v in _read(column, "values", [])]
+        facets = sorted(unnest_array_facets(raw), key=lambda v: v["count"], reverse=True)[:limit]
         provenance = {
             "sha": _read(body, "sha") or snapshot_sha,
             "watermark_ms": _read(body, "watermark_ms"),

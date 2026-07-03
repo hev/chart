@@ -100,20 +100,25 @@ def test_ingest_index_and_facets_share_namespace_and_pins() -> None:
     assert pipeline["spec"]["sourceRef"]["chunk"]["tokenizer"] == "snowflake-arctic-embed-m-v1.5"
 
     assert index["spec"]["backend"]["namespace"] == "chart-notes"
-    assert index["spec"]["backend"]["storeRef"] == "search-default"
+    # storeRef matches the VectorStore CRD actually applied to the `chart`
+    # namespace (kind=turbopuffer, verified via `kubectl get vectorstore -A`).
+    # A kind=search cutover was attempted but never actually applied; see
+    # deploy/vectorstore.yaml's header comment.
+    assert index["spec"]["backend"]["storeRef"] == "turbopuffer-default"
     assert index["spec"]["snapshot"]["facetFields"] == FACET_FIELDS
     assert all(field in SCHEMA and "type" in SCHEMA[field] for field in FACET_FIELDS)
     assert warehouse["spec"]["kind"] == "huggingface"
-    assert vectorstore["spec"]["kind"] == "search"
-    assert vectorstore["metadata"]["name"] == "search-default"
-    assert vectorstore["spec"]["inboundAuth"]["mode"] == "keys"
-    # The engine's own tokens stay upstream-only, referenced from a Secret.
-    assert vectorstore["spec"]["credential"]["secretRef"]["name"] == "chart-hevsearch"
-    assert vectorstore["spec"]["search"]["adminCredential"]["secretRef"]["name"] == "chart-hevsearch"
+    assert vectorstore["spec"]["kind"] == "turbopuffer"
+    assert vectorstore["metadata"]["name"] == "turbopuffer-default"
+    assert vectorstore["spec"]["inboundAuth"]["mode"] == "deriveFromStore"
+    assert vectorstore["spec"]["credential"]["secretRef"]["name"] == "chart-turbopuffer"
 
 
-def test_vectorstore_engine_and_apikey_wire_the_search_backend_together() -> None:
-    vectorstore = _manifest("vectorstore.yaml")
+def test_hevsearch_engine_and_apikey_are_internally_consistent() -> None:
+    # hevsearch-engine.yaml/apikey.yaml describe the hevsearch backend for a
+    # future kind=search cutover — not currently referenced by vectorstore.yaml
+    # (which is on kind=turbopuffer, the store actually applied to `chart`).
+    # This only checks that the not-yet-live manifests agree with each other.
     engine = _manifest_all("hevsearch-engine.yaml")
     apikey = _manifest("apikey.yaml")
 
@@ -122,7 +127,6 @@ def test_vectorstore_engine_and_apikey_wire_the_search_backend_together() -> Non
     container = deployment["spec"]["template"]["spec"]["containers"][0]
     env = {item["name"]: item for item in container["env"]}
 
-    assert vectorstore["spec"]["endpoint"]["url"] == "http://hevsearch.chart.svc.cluster.local:3000"
     assert service["metadata"]["name"] == "hevsearch"
     assert service["spec"]["ports"][0]["port"] == 3000
     assert env["HEVSEARCH_STORAGE_URI"]["value"] == "s3://hev-search-186219257916/chart"

@@ -79,6 +79,32 @@
     .hit p { margin:.35rem 0 0; }
     .hit button { border:1px solid var(--line); background:#fff; border-radius:6px; padding:.2rem .45rem; font-size:.78rem; cursor:pointer; }
     .empty { color:var(--muted); padding:.75rem 0; }
+    /* Note viewer: full text + every cascade label, with the gateway's lexical
+       matches highlighted. Native <dialog>, styled like the rest of the page. */
+    #noteview { border:1px solid var(--line); border-radius:12px; padding:0; max-width:760px; width:calc(100% - 2.5rem); max-height:85vh; }
+    #noteview::backdrop { background:rgba(26,34,48,.45); }
+    #noteview .nv-body { padding:1.1rem 1.25rem 1.25rem; overflow-y:auto; max-height:calc(85vh - 2px); box-sizing:border-box; }
+    #noteview .nv-close { position:sticky; top:0; float:right; border:none; background:none; font-size:1.15rem; color:var(--muted); cursor:pointer; padding:.1rem .3rem; }
+    #noteview .nv-close:hover { color:var(--ink); }
+    #noteview h2 { font-size:1.15rem; margin:0 1.5rem .25rem 0; }
+    #noteview .meta { color:var(--muted); font-size:.84rem; }
+    #noteview .nv-matches { border:1px solid var(--line); background:#fbfcfe; border-radius:8px; padding:.55rem .7rem; margin:.8rem 0 0; font-size:.82rem; }
+    #noteview .nv-matches .mlabel { text-transform:uppercase; letter-spacing:.04em; font-size:.72rem; color:var(--muted); font-weight:600; margin-right:.35rem; }
+    .mterm { display:inline-block; border-radius:6px; padding:.08rem .45rem; margin:.1rem .15rem .1rem 0; font-size:.8rem; background:#e7f6ee; color:var(--kw); font-weight:600; }
+    .mterm .mcount { font-weight:400; opacity:.75; font-variant-numeric:tabular-nums; }
+    .mterm.fuzzy { background:#fdf6ec; color:#92400e; }
+    .mterm.miss { background:#f1f3f7; color:var(--muted); font-weight:400; }
+    #noteview .nv-text { margin:.9rem 0 0; white-space:pre-line; }
+    #noteview .nv-text mark { background:#dff2e8; color:#075e3a; border-radius:3px; padding:0 .12em; font-weight:600; }
+    #noteview .nv-labels { border-top:1px solid var(--line); margin-top:1rem; padding-top:.8rem; }
+    #noteview .nv-labels h3 { font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:0 0 .5rem; }
+    #noteview .nv-grid { display:grid; grid-template-columns:max-content 1fr; gap:.3rem .9rem; font-size:.88rem; }
+    #noteview .nv-grid dt { color:var(--muted); margin:0; }
+    #noteview .nv-grid dd { margin:0; }
+    #noteview .nv-unclassified { color:var(--muted); font-size:.85rem; }
+    #noteview .nv-foot { color:var(--muted); font-size:.75rem; border-top:1px solid var(--line); margin-top:1rem; padding-top:.6rem; }
+    .hit p.snippet { cursor:pointer; }
+    .hit p.snippet:hover { color:var(--accent); }
     .pager { display:flex; align-items:center; justify-content:space-between; gap:.6rem; margin:1.1rem 0 .25rem; border-top:1px solid var(--line); padding-top:.8rem; }
     .pager .pg { border:1px solid var(--line); background:#fff; border-radius:6px; padding:.3rem .65rem; font-size:.85rem; cursor:pointer; }
     .pager .pg:not(:disabled):hover { border-color:var(--accent); color:var(--accent); }
@@ -129,6 +155,10 @@
       <aside class="rail" id="rail"></aside>
     </div>
 
+    <!-- Note viewer: the full case report + every cascade classification, with
+         the gateway's lexical matches highlighted (hybrid echo + $fused legs). -->
+    <dialog id="noteview" aria-label="Patient note viewer"></dialog>
+
     <footer aria-label="Dataset and safety notice">
       Notes come from
       <a href="https://huggingface.co/datasets/zhengyun21/PMC-Patients" target="_blank" rel="noreferrer">PMC-Patients</a>,
@@ -160,6 +190,7 @@
     // UI state: the last text query (or '' to browse) and the active facet filters.
     let lastQuery = '';
     let lastNote = '';
+    let lastEcho = null;           // last search's {route, hybrid} gateway echo — drives the note viewer's term highlights
     let facetData = null;          // corpus-wide snapshot rail (stable value set + provenance)
     let agenticInfo = null;        // last agentic run (agent echo + merge) — repurposes the rail
     let liveCounts = null;         // per-search counts from the Scans API (or null = show corpus)
@@ -264,6 +295,7 @@
           // Facet filters (and the per-search rail scan) don't apply to agentic
           // search — the rail becomes the run inspector instead (renderAgentRail).
           agenticInfo = data;
+          lastEcho = null; // per-variant token sets — no single honest highlight vocabulary
           renderAgentic(data);
           renderResults(data.rows || []);
           liveCounts = null; countsNote = ''; railCounting = false; countsSeq += 1;
@@ -271,12 +303,13 @@
           return;
         }
         agenticInfo = null;
+        const routing = data.routing || {};
+        lastEcho = { route: routing.route || routing.strategy || '', hybrid: data.hybrid || null };
         renderRouting(data, lastNote);
         renderResults(data.rows || []);
         // The Scans API showcase: count the full match set per facet, async, so the
         // ranked results never wait on the (slower) scatter/gather scan. The route
         // decides the scan selector — semantic counts a vector radius, not keywords.
-        const routing = data.routing || {};
         refreshCounts(search, routing.route || routing.strategy || '');
       } catch (err) {
         stopThinking();
@@ -419,6 +452,7 @@
       try {
         const data = await apiJson('/api/similar/' + encodeURIComponent(id) + '?top_k=' + FETCH_DEPTH);
         agenticInfo = null; // a similar-lookup is a routed query; restore the facet rail
+        lastEcho = { route: ((data.routing || {}).route) || '', hybrid: data.hybrid || null };
         renderRouting(data, 'Nearest-neighbor lookup from the selected patient id.');
         renderResults(data.rows || []);
         renderRail();
@@ -512,6 +546,9 @@
         ? `<button class="etag reason" data-field="discontinuation_reason" data-value="${escapeAttr(row.discontinuation_reason)}">stopped: ${escapeHtml(humanize(row.discontinuation_reason))}</button>`
         : '';
       const text = (row.text || '').slice(0, 320);
+      const noteBtn = document.createElement('button');
+      noteBtn.textContent = 'Note';
+      noteBtn.onclick = () => openNote(row);
       const similar = document.createElement('button');
       similar.textContent = 'Similar';
       similar.onclick = () => runSimilar(rowId);
@@ -526,10 +563,12 @@
         <div class="meta">${escapeHtml(facets)}</div>
         ${eventTags || reasonTag ? `<div class="etags">${eventTags}${reasonTag}</div>` : ''}
         ${agentMeta}
-        <p>${escapeHtml(text)}${row.text && row.text.length > 320 ? '…' : ''}</p>
+        <p class="snippet" title="View the full note">${escapeHtml(text)}${row.text && row.text.length > 320 ? '…' : ''}</p>
       `;
       hit.querySelectorAll('.etag').forEach((b) => { b.onclick = () => toggleFilter(b.dataset.field, b.dataset.value); });
+      hit.querySelector('.meta').append(' ', noteBtn);
       if (rowId) hit.querySelector('.meta').append(' ', similar);
+      hit.querySelector('.snippet').onclick = () => openNote(row);
       return hit;
     }
 
@@ -544,6 +583,115 @@
       ).join('') + '<button class="aclear">Clear all</button>';
       bar.querySelectorAll('.afilter').forEach((b) => { b.onclick = () => toggleFilter(b.dataset.field, b.dataset.value); });
       bar.querySelector('.aclear').onclick = clearFilters;
+    }
+
+    // --- Note viewer -------------------------------------------------------
+    // The full case report + every cascade classification. When the last search
+    // ran a lexical leg (hybrid_text, or fused's lexical side), the gateway's
+    // hybrid echo carries the tokens it ranked over and each row's $fused legs
+    // say which of them surfaced the row — the viewer highlights those literal
+    // occurrences. It never re-tokenizes or re-matches: tokens the fuzzy leg
+    // matched on a near-spelling are labeled honestly instead of guessed at,
+    // because the gateway doesn't echo the matched variant yet (RFC 0096).
+    const noteview = document.getElementById('noteview');
+    noteview.addEventListener('click', (e) => { if (e.target === noteview) noteview.close(); });
+
+    function regexEscape(value) { return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+    function tokenRegex(token) { return new RegExp('\\b' + regexEscape(token) + '\\b', 'gi'); }
+
+    function highlightNote(text, tokens) {
+      const present = (tokens || []).filter((t) => t && tokenRegex(t).test(text));
+      if (!present.length) return escapeHtml(text);
+      // One capture group → split() interleaves [plain, match, plain, …].
+      const re = new RegExp('\\b(' + present.map(regexEscape).join('|') + ')\\b', 'gi');
+      return text.split(re)
+        .map((part, i) => (i % 2 ? `<mark>${escapeHtml(part)}</mark>` : escapeHtml(part)))
+        .join('');
+    }
+
+    // Per-token match chips for this row: literal occurrences (highlighted, with a
+    // count), fuzzy-leg matches (near-spelling surfaced it; variant not echoed),
+    // or no match in this note (dimmed).
+    function matchSection(row, text) {
+      const tokens = (lastEcho && lastEcho.hybrid && lastEcho.hybrid.tokens) || [];
+      if (!tokens.length) return '';
+      const fuzzyHit = new Set();
+      for (const leg of ((row['$fused'] && row['$fused'].legs) || [])) {
+        if (leg && leg.rank != null && String(leg.leg || '').startsWith('fuzzy:')) {
+          fuzzyHit.add(String(leg.leg).slice('fuzzy:'.length));
+        }
+      }
+      const chips = tokens.map((token) => {
+        const count = (text.match(tokenRegex(token)) || []).length;
+        if (count) return `<span class="mterm">${escapeHtml(token)} <span class="mcount">×${count}</span></span>`;
+        if (fuzzyHit.has(token)) {
+          return `<span class="mterm fuzzy" title="The fuzzy leg matched a near-spelling of this term — the gateway doesn’t echo which variant yet">${escapeHtml(token)} <span class="mcount">fuzzy</span></span>`;
+        }
+        return `<span class="mterm miss" title="No match for this term in this note">${escapeHtml(token)}</span>`;
+      }).join('');
+      return `<div class="nv-matches"><span class="mlabel">${escapeHtml(lastEcho.route || 'lexical')} matches</span>${chips}</div>`;
+    }
+
+    // Everything the Gemma cascade wrote back onto this row (RFC 0076's GPU
+    // showcase), rendered as a label grid. Events/reason stay clickable filters.
+    function cascadeSection(row) {
+      const yn = (v) => (v === true ? 'Yes' : v === false ? 'No' : null);
+      const classified = row.events !== undefined || row.has_med_discontinuation !== undefined
+        || row.specialty || row.diagnosis_category || row.body_system || row.chief_complaint;
+      if (!classified) {
+        return '<div class="nv-unclassified">Not yet classified — the Gemma cascade backfill hasn’t reached this note.</div>';
+      }
+      const events = Array.isArray(row.events) ? row.events : [];
+      const eventTags = events.length
+        ? '<span class="etags">' + events.map((ev) =>
+            `<button class="etag" data-field="events" data-value="${escapeAttr(ev)}">${escapeHtml(humanize(ev))}</button>`
+          ).join('') + '</span>'
+        : (row.events !== undefined ? 'None detected' : null);
+      const reason = row.discontinuation_reason
+        ? `<button class="etag reason" data-field="discontinuation_reason" data-value="${escapeAttr(row.discontinuation_reason)}">${escapeHtml(humanize(row.discontinuation_reason))}</button>`
+        : null;
+      const rows = [
+        ['Clinical events', eventTags, true],
+        ['Medication discontinued', yn(row.has_med_discontinuation)],
+        ['Stopped because', reason, true],
+        ['Adverse drug reaction', yn(row.has_adverse_event)],
+        ['Specialty', row.specialty ? humanize(row.specialty) : null],
+        ['Diagnosis', row.diagnosis_category ? humanize(row.diagnosis_category) : null],
+        ['Body system', row.body_system ? humanize(row.body_system) : null],
+        ['Chief complaint', row.chief_complaint ? humanize(row.chief_complaint) : null],
+      ].filter(([, value]) => value != null && value !== '');
+      const grid = rows.map(([label, value, isHtml]) =>
+        `<dt>${escapeHtml(label)}</dt><dd>${isHtml ? value : escapeHtml(value)}</dd>`
+      ).join('');
+      return `<dl class="nv-grid">${grid}</dl>`;
+    }
+
+    function openNote(row) {
+      const rowId = row.id || row['$id'] || '';
+      const title = row.title || row.pmid || rowId || 'Untitled patient note';
+      const url = row.source_url || '';
+      const text = row.text || '';
+      const tokens = (lastEcho && lastEcho.hybrid && lastEcho.hybrid.tokens) || [];
+      const demo = [
+        row.pmid ? `PMID ${row.pmid}` : '',
+        row.age_band ? humanize(row.age_band) : (row.age != null ? `Age ${row.age}` : ''),
+        row.gender ? humanize(row.gender) : '',
+      ].filter(Boolean).join(' · ');
+      noteview.innerHTML = `<div class="nv-body">
+        <button class="nv-close" aria-label="Close">✕</button>
+        <h2>${url ? `<a href="${escapeAttr(url)}" target="_blank" rel="noreferrer">${escapeHtml(title)}</a>` : escapeHtml(title)}</h2>
+        <div class="meta">${escapeHtml(demo)}</div>
+        ${matchSection(row, text)}
+        <p class="nv-text">${highlightNote(text, tokens)}</p>
+        <div class="nv-labels"><h3>Gemma cascade classifications</h3>${cascadeSection(row)}</div>
+        <div class="nv-foot">Published, de-identified case report (PMC-Patients, CC-BY-NC-SA-4.0) —
+          not raw EHR and not for clinical use.${url ? ` <a href="${escapeAttr(url)}" target="_blank" rel="noreferrer">Source report →</a>` : ''}</div>
+      </div>`;
+      noteview.querySelector('.nv-close').onclick = () => noteview.close();
+      noteview.querySelectorAll('.etag').forEach((b) => {
+        b.onclick = () => { noteview.close(); toggleFilter(b.dataset.field, b.dataset.value); };
+      });
+      noteview.showModal();
     }
 
     // The value list for one facet: corpus snapshot by default, overlaid with live
@@ -644,6 +792,7 @@
         facetData = await apiJson('/api/facets');
       } catch (err) {
         facetData = null;
+        console.error('facet rail failed to load', err);
       }
       renderRail();
     }
@@ -651,7 +800,17 @@
     // --- Helpers -----------------------------------------------------------
 
     async function apiJson(url) {
-      const response = await fetch(url);
+      // Time-bound every API call: a backend stuck on a restarting gateway
+      // otherwise leaves "Searching…" up forever with no feedback.
+      let response;
+      try {
+        response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+      } catch (err) {
+        if (err && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+          throw new Error('no response after 30s — the gateway may be restarting; retry shortly');
+        }
+        throw err;
+      }
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.detail || data.message || `HTTP ${response.status}`);

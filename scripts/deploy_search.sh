@@ -20,7 +20,7 @@ cd "$(dirname "$0")/.."
 
 RELEASE="${RELEASE:-chart}"
 NAMESPACE="${NAMESPACE:-chart}"
-IMAGE_TAG="${IMAGE_TAG:-chart-search-20260702d}"
+IMAGE_TAG="${IMAGE_TAG:-chart-search-20260703a}"
 ECR_REPOSITORY="${ECR_REPOSITORY:-186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh}"
 IMAGE="${ECR_REPOSITORY}:${IMAGE_TAG}"
 BUILD="${BUILD:-1}"

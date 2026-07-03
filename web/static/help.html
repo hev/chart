@@ -99,10 +99,10 @@
       <tr><th>Classification path</th><th>~11k notes</th><th>~167k notes</th></tr>
       <tr><td>Haiku 4.5 realtime API</td><td>~$31</td><td>~$460</td></tr>
       <tr><td>Haiku 4.5 Batch API (baseline)</td><td>~$16</td><td>~$235</td></tr>
-      <tr><td><strong>This cascade</strong> (Gemma-2-9B, one A10G GPU)</td><td><strong>~$3–6</strong></td><td><strong>~$40–80</strong></td></tr>
+      <tr><td><strong>This cascade</strong> (Gemma-2-9B, two A10G GPUs)</td><td><strong>$8.2 measured</strong></td><td><strong>~$120</strong></td></tr>
     </table>
-    <p class="doclink">Projected from measured token counts and on-demand GPU pricing; Layer's cost reporting is
-      the authoritative measurement.</p>
+    <p class="doclink">Measured on the real backfill (11,373 notes, ~4 hours, zero failures) via Layer's cost
+      reporting; larger claim sizes leave further headroom.</p>
     <p class="doclink">Docs: <a href="https://hevlayer.com/docs/kubernetes/function-crd/" target="_blank" rel="noreferrer">Function resource</a>
       · <a href="https://hevlayer.com/docs/kubernetes/function-crd/#gpu-classifier" target="_blank" rel="noreferrer">GPU classifier</a></p>
 

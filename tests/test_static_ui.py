@@ -180,3 +180,41 @@ def test_static_ui_links_back_to_hevlayer() -> None:
 
     assert 'href="https://hevlayer.com"' in source
     assert source.count("https://hevlayer.com") >= 2
+
+
+def test_static_ui_note_viewer_shows_full_note_and_every_cascade_label() -> None:
+    source = INDEX.read_text()
+
+    # The viewer is a native <dialog>, opened from each hit (button + snippet).
+    assert 'id="noteview"' in source
+    assert "function openNote(row)" in source
+    assert "noteview.showModal()" in source
+    assert 'noteBtn.textContent = ' in source and "openNote(row)" in source
+    # Every cascade output renders — not just the events already on the card.
+    assert "Gemma cascade classifications" in source
+    assert "row.body_system" in source
+    assert "row.chief_complaint" in source
+    assert "row.has_adverse_event" in source
+    assert "row.has_med_discontinuation" in source
+    # Honesty: an unclassified note says so instead of showing a blank grid.
+    assert "Not yet classified" in source
+    # The safety notice repeats inside the viewer (full note text is on screen).
+    assert "not raw EHR and not for clinical use." in source
+
+
+def test_static_ui_note_viewer_highlights_gateway_lexical_tokens_only() -> None:
+    source = INDEX.read_text()
+
+    # The highlight vocabulary is the gateway's hybrid echo — captured per search,
+    # cleared for agentic runs (per-variant token sets have no single vocabulary).
+    assert "lastEcho = { route: routing.route || routing.strategy || '', hybrid: data.hybrid || null };" in source
+    assert "lastEcho = null; // per-variant token sets" in source
+    assert "lastEcho.hybrid.tokens" in source
+    # Literal, whole-token occurrences get <mark>ed; the UI never re-tokenizes.
+    assert "function highlightNote(text, tokens)" in source
+    assert "<mark>" in source
+    # A fuzzy-leg match (from the row's $fused provenance) is labeled honestly —
+    # the gateway doesn't echo the matched variant yet, so the UI doesn't guess.
+    assert "startsWith('fuzzy:')" in source
+    assert "mterm fuzzy" in source
+    assert "row['$fused']" in source

@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
+import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -42,8 +43,11 @@ INCLUDE = [
     "gender",
     "specialty",
     "diagnosis_category",
+    "body_system",
+    "chief_complaint",
     "events",
     "has_med_discontinuation",
+    "has_adverse_event",
     "discontinuation_reason",
     "similar_patient_ids",
 ]
@@ -135,6 +139,11 @@ async def _run_query(body: QueryRequest, *, require_routing: bool = False) -> di
             if exc.status_code not in TRANSIENT:
                 raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
             last_detail = exc.message
+        except httpx.HTTPError as exc:
+            # Transport-level failure (gateway restarting / unreachable — connect
+            # error or timeout). Transient like a 502: retry, then surface a clean
+            # 502 instead of a 500 traceback.
+            last_detail = f"gateway unreachable: {exc.__class__.__name__}: {exc}"
         else:
             if require_routing and not _routing_route(resp.routing):
                 raise HTTPException(status_code=502, detail="gateway response did not include a routing decision")
@@ -181,6 +190,8 @@ async def _run_agent_query(query: str, *, top_k: int = 20) -> dict:
             if exc.status_code not in TRANSIENT:
                 raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
             last_detail = exc.message
+        except httpx.HTTPError as exc:
+            last_detail = f"gateway unreachable: {exc.__class__.__name__}: {exc}"
         else:
             return {
                 "rows": _rows(resp.rows),
@@ -268,12 +279,17 @@ async def facets(q: str = "", f: list[str] = Query(default=[]), route: str = "")
     if q.strip() or f:
         return await facet_counts(q=q, f=f, route=route)
     out = {}
-    for field_name in FACET_FIELDS:
-        values, provenance = await latest_facets(
-            app.state.layer, app.state.settings.namespace, field=field_name
-        )
-        if values is not None:
-            out[field_name] = {"values": values, "provenance": provenance}
+    try:
+        for field_name in FACET_FIELDS:
+            values, provenance = await latest_facets(
+                app.state.layer, app.state.settings.namespace, field=field_name
+            )
+            if values is not None:
+                out[field_name] = {"values": values, "provenance": provenance}
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=502, detail=f"gateway unreachable: {exc.__class__.__name__}: {exc}"
+        ) from exc
     return JSONResponse(out)
 
 
