@@ -39,6 +39,8 @@ def test_gpu_embed_pipeline_manifest_is_unpaused_and_gpu_backed() -> None:
     assert manifest["spec"]["paused"] is False
     assert manifest["spec"]["pipelineId"] == "chart-notes"
     assert manifest["spec"]["target"]["namespace"] == "chart-notes"
+    # Pipelines don't go through UDF gateway registration, so computeClass is
+    # fine here (the hev/layer#148 strip applies to the events Function only).
     assert manifest["spec"]["worker"]["computeClass"] == "gpu"
     container = manifest["spec"]["worker"]["podSpec"]["containers"][0]
     assert container["name"] == "worker"
@@ -68,7 +70,9 @@ def test_events_function_manifest_is_resumable() -> None:
     assert container["name"] == "udf"
     assert container["command"] == ["uv", "run", "python", "-m", "functions.classify_events"]
     assert manifest["spec"]["scaling"]["pool"] == "gpu"
-    assert manifest["spec"]["worker"]["computeClass"] == "gpu"
+    # No worker.computeClass: scaling.pool pins gpu, and the operator's UDF
+    # re-registration equality check rejects the redundant field (hev/layer#148).
+    assert "computeClass" not in manifest["spec"]["worker"]
     assert manifest["spec"]["scaling"]["replicas"]["max"] == 2
 
 
@@ -173,7 +177,7 @@ def test_gpu_dockerfile_builds_manifest_images() -> None:
     assert "python\", \"-m\", \"indexer.embed\"" in dockerfile
     assert "python\", \"-m\", \"functions.classify_events\"" in dockerfile
     assert embed_manifest["spec"]["worker"]["image"] == f"{ECR_REPOSITORY}:chart-embedder-plan-20260626-batchdocs1"
-    assert classifier_manifest["spec"]["worker"]["image"] == f"{ECR_REPOSITORY}:chart-classifier-plan-20260624"
+    assert classifier_manifest["spec"]["worker"]["image"] == f"{ECR_REPOSITORY}:chart-classifier-plan-20260702-batched3"
     assert not embed_manifest["spec"]["worker"]["image"].endswith(":latest")
     assert not classifier_manifest["spec"]["worker"]["image"].endswith(":latest")
     assert f'default_embed_tag="{embed_manifest["spec"]["worker"]["image"]}"' in build_script

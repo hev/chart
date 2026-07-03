@@ -96,13 +96,21 @@ DIGEST_SCHEMA = {
         "diagnosis_category": {"type": "string"},
         "specialty": {"type": "string"},
     },
-    "required": ["events"],
+    # diagnosis_category / specialty are required so guided decoding always
+    # emits them — optional fields get silently omitted and the parser's
+    # "other" default made two facets useless.
+    "required": ["events", "diagnosis_category", "specialty"],
 }
 
 _DIGEST_PROMPT = (
     "You are a clinical information extractor. Read the patient note and return the "
     "structured digest. List every clinical event; for medication_discontinued, set "
-    "`drug` and, if stated, `reason`. Do not infer events that are not described.\n\nNote:\n{note}"
+    "`drug` and, if stated, `reason`. Do not infer events that are not described. "
+    "Set `specialty` to the single medical specialty that would own this case "
+    "(e.g. cardiology, oncology, neurology, infectious_disease, endocrinology, "
+    "pediatrics, psychiatry, nephrology, gastroenterology, pulmonology) and "
+    "`diagnosis_category` to the primary diagnosis area in the same lowercase_snake "
+    "style. Use `other` only when genuinely unclassifiable.\n\nNote:\n{note}"
 )
 
 
@@ -120,21 +128,55 @@ def _engine():
             "`classifier` extra installed."
         ) from exc
 
-    return LLM(model=MODEL)
+    # Gemma-2-9B bf16 weights are 17.2GiB of a 24GB A10G; at the defaults
+    # (util 0.90, max_seq_len 8192 from the model config, CUDA-graph capture)
+    # only ~0.75GiB is left for KV cache and the engine refuses to start
+    # (needs 2.63GiB at 8192). Rows are ~512-token note chunks, so 4096 is
+    # generous headroom; eager mode skips CUDA-graph memory, which matters
+    # more than graph latency for batch-heavy guided decoding.
+    return LLM(
+        model=MODEL,
+        max_model_len=int(os.environ.get("CHART_VLLM_MAX_MODEL_LEN", "4096")),
+        gpu_memory_utilization=float(os.environ.get("CHART_VLLM_GPU_UTIL", "0.95")),
+        enforce_eager=os.environ.get("CHART_VLLM_ENFORCE_EAGER", "1").strip().lower() in {"1", "true", "yes"},
+    )
 
 
 def digest(note_text: str) -> dict:
-    """Tier 1 — the one GPU pass. Guided-decode the note to DIGEST_SCHEMA.
+    """Tier 1 — the one GPU pass. Guided-decode the note to DIGEST_SCHEMA."""
+    return digest_batch([note_text])[0]
+
+
+def digest_batch(note_texts: list[str]) -> list[dict]:
+    """Tier 1, batched — one vLLM `generate()` over the whole claim.
+
+    vLLM's throughput lever is continuous batching: N prompts in one call share
+    the forward passes, ~3-5x the notes/sec of calling generate() per note on
+    the same GPU. The worker loop feeds an entire claimed batch through here.
 
     vLLM changed the Python structured-output API across releases: newer versions
     use `structured_outputs`, older versions use `guided_decoding`. Support both
-    so the Function image can move independently of this repo.
+    so the Function image can move independently of this repo. A note that fails
+    to parse degrades to an empty digest rather than failing the batch — the
+    `events Eq null`-filtered re-run picks it up again.
     """
-    if not note_text:
-        return {"events": [], "summary": ""}
-    prompt = _DIGEST_PROMPT.format(note=note_text)
-    out = _engine().generate([prompt], _sampling_params())
-    return _parse_digest(out[0].outputs[0].text)
+    if not note_texts:
+        return []
+    empty = {"events": [], "summary": "", "diagnosis_category": "other", "specialty": "other"}
+    # Rows are ~512-token chunks, but guard the engine's max_model_len (4096)
+    # against outliers: ~12k chars ≈ 3k tokens leaves room for prompt + output.
+    prompts = [_DIGEST_PROMPT.format(note=t[:12000]) for t in note_texts]
+    live = [i for i, t in enumerate(note_texts) if t]
+    digests: list[dict] = [dict(empty) for _ in note_texts]
+    if not live:
+        return digests
+    outs = _engine().generate([prompts[i] for i in live], _sampling_params())
+    for i, out in zip(live, outs):
+        try:
+            digests[i] = _parse_digest(out.outputs[0].text)
+        except (ValueError, json.JSONDecodeError):
+            digests[i] = dict(empty)
+    return digests
 
 
 def derive_labels(d: dict) -> dict:
@@ -227,11 +269,18 @@ def _parse_digest(text: str) -> dict:
     }
 
 
-# --- The UDF entrypoint (moment's @udf + run_udf_worker wiring). -------------
-# Primary output is `events` ([]string) on the documented single-output sugar.
-# The full Tier-2 label set is patched through the injected `tpuf` client, settling
-# RFC 0076's multi-write question as one cascade Function: one model pass, many
-# denormalized labels.
+# --- The UDF entrypoint. ------------------------------------------------------
+# Primary output is `events` ([]string). The full Tier-2 label set is patched
+# via one multi-row patch_columns per claim (columnar: N ids + aligned column
+# arrays), settling RFC 0076's multi-write question as one cascade Function:
+# one model pass, many denormalized labels.
+#
+# The per-item @udf spelling is kept for tests and CPU-side inspection, but the
+# deployed worker runs `run_batched_worker` below: the client's run_udf_worker
+# calls the UDF once per item, which serializes vLLM into N single-prompt
+# generate() calls per claim. Speaking the documented claim/complete worker
+# protocol directly (docs/kubernetes/function-crd § worker protocol) lets the
+# whole claim go through one batched generate() + one writeback + one complete.
 @udf(id="chart-classify-events", inputs=["id", "text"], output="events", batch_size=16)
 async def classify_events_udf(
     id: object = "", text: object = "", tpuf: Any | None = None
@@ -254,9 +303,90 @@ async def classify_events_udf(
     return labels["events"]
 
 
+def _batch_writeback_columns(digests: list[dict]) -> dict[str, list[Any]]:
+    """Tier-2 labels for a whole claim as aligned column arrays (patch_columns'
+    native shape: one write for N rows instead of N writes)."""
+    columns: dict[str, list[Any]] = {field: [] for field in WRITEBACK_FIELDS}
+    for d in digests:
+        labels = derive_labels(d)
+        columns["events"].append(labels["events"])
+        columns["has_med_discontinuation"].append(labels["has_med_discontinuation"])
+        columns["has_adverse_event"].append(labels["has_adverse_event"])
+        columns["diagnosis_category"].append(labels["diagnosis_category"])
+        columns["specialty"].append(labels["specialty"])
+        columns["discontinuation_reason"].append(
+            discontinuation_reason(d) if labels["has_med_discontinuation"] else None
+        )
+    return columns
+
+
+async def run_batched_worker(*, once: bool = False, poll_interval: float = 2.0) -> None:
+    """The deployed loop: claim → ONE batched generate() → ONE patch_columns →
+    complete. Same protocol run_udf_worker speaks, minus the per-item fn calls."""
+    import uuid
+
+    from hevlayer import AsyncHevlayer
+
+    settings = Settings()
+    udf_id = os.environ.get("HEVLAYER_UDF_ID", "chart-classify-events")
+    worker_id = os.environ.get("HEVLAYER_WORKER_ID") or f"{udf_id}-{uuid.uuid4().hex[:8]}"
+    limit = int(os.environ.get("HEVLAYER_UDF_BATCH_SIZE", "16"))
+    # The lease must outlast one whole batched generate() — scale it with the
+    # claim size rather than relying on the client's 120s default.
+    lease_seconds = int(os.environ.get("HEVLAYER_UDF_LEASE_SECONDS", "600"))
+    base_url = os.environ.get("HEVLAYER_BASE_URL", "http://localhost:8080")
+
+    async with AsyncHevlayer(api_key=settings.api_key, base_url=base_url) as client:
+        while True:
+            claimed = await client.claim_udf_items(
+                udf_id, {"worker_id": worker_id, "limit": limit, "lease_seconds": lease_seconds}
+            )
+            if not claimed.items:
+                if once:
+                    return
+                await asyncio.sleep(poll_interval)
+                continue
+
+            items = claimed.items
+            digests = digest_batch(["" if i.input.get("text") is None else str(i.input.get("text")) for i in items])
+            columns = _batch_writeback_columns(digests)
+
+            # One multi-row patch per (namespace, claim) — items in a claim share
+            # the target namespace in practice, but group defensively.
+            by_namespace: dict[str, list[int]] = {}
+            for idx, item in enumerate(items):
+                by_namespace.setdefault(item.namespace, []).append(idx)
+            for namespace, idxs in by_namespace.items():
+                ids = [str(items[i].input.get("id") or items[i].id) for i in idxs]
+                await client.patch_columns(
+                    namespace, ids, {name: [values[i] for i in idxs] for name, values in columns.items()}
+                )
+
+            await client.complete_udf_items(
+                udf_id,
+                {
+                    "worker_id": worker_id,
+                    "items": [
+                        {
+                            "namespace": item.namespace,
+                            "id": item.id,
+                            "attributes": {"events": derive_labels(d)["events"]},
+                        }
+                        for item, d in zip(items, digests)
+                    ],
+                },
+            )
+            if once:
+                return
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the chart clinical-event classifier UDF worker")
     parser.add_argument("--once", action="store_true", help="claim one batch and exit")
+    parser.add_argument(
+        "--per-item", action="store_true",
+        help="use the client's per-item run_udf_worker loop instead of the batched loop",
+    )
     args = parser.parse_args()
     if not Settings().api_key:
         raise SystemExit(
@@ -264,7 +394,10 @@ def main() -> None:
             "Turbopuffer key (1Password: layer-turbopuffer / mesh-staging)."
         )
     once = args.once or os.environ.get("CHART_UDF_ONCE", "").strip().lower() in {"1", "true", "yes"}
-    asyncio.run(run_udf_worker(classify_events_udf, udf_id="chart-classify-events", once=once))
+    if args.per_item or os.environ.get("CHART_UDF_PER_ITEM", "").strip().lower() in {"1", "true", "yes"}:
+        asyncio.run(run_udf_worker(classify_events_udf, udf_id="chart-classify-events", once=once))
+    else:
+        asyncio.run(run_batched_worker(once=once))
 
 
 if __name__ == "__main__":

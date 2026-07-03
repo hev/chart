@@ -138,7 +138,7 @@ async def test_collect_status_reports_explicit_phase6_targets(monkeypatch) -> No
         "embed_compute_class": "gpu",
         "embed_image": "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1",
         "classifier_compute_class": "gpu",
-        "classifier_image": "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260624",
+        "classifier_image": "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260702-batched3",
     }
     assert status["cost_baselines"] == {"embed": {"accepted": True}, "classifier": {"accepted": True}}
     assert status["kubernetes"] == {"namespace": "chart"}

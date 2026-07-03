@@ -40,9 +40,22 @@ CMD ["uv", "run", "python", "-m", "source.huggingface_source"]
 
 FROM base AS classifier
 ARG PRELOAD_EVENTS_MODEL=google/gemma-2-9b-it
-RUN uv sync --extra classifier --frozen \
+# gcc + C headers + Python.h: vLLM compiles triton/torch-inductor kernels at
+# engine start (triton's cuda_utils is a C Python extension), so the runtime
+# CUDA base needs a working native toolchain or the EngineCore dies in a
+# load→compile→crash loop.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gcc libc6-dev python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+# Bake the Gemma weights. gemma-2-9b-it is gated: the build needs an HF token
+# (BuildKit secret `hf_token`) from an account that accepted the license, and
+# the download failing fails the BUILD — a silently weightless image re-pulls
+# 17GB on every cold start (and anonymously it just 429s; been there).
+RUN --mount=type=secret,id=hf_token \
+    uv sync --extra classifier --frozen \
     && if [ -n "${PRELOAD_EVENTS_MODEL}" ]; then \
-      .venv/bin/python -c 'import os; from huggingface_hub import snapshot_download; snapshot_download(os.environ["PRELOAD_EVENTS_MODEL"]); print("preloaded events model", os.environ["PRELOAD_EVENTS_MODEL"])'; \
+      HF_TOKEN="$(cat /run/secrets/hf_token)" \
+      .venv/bin/python -c 'import os; from huggingface_hub import snapshot_download; snapshot_download(os.environ["PRELOAD_EVENTS_MODEL"], token=os.environ.get("HF_TOKEN") or None); print("preloaded events model", os.environ["PRELOAD_EVENTS_MODEL"])'; \
     fi \
     && uv cache clean
 CMD ["uv", "run", "python", "-m", "functions.classify_events"]

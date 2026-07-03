@@ -22,11 +22,11 @@ fi
 
 default_embed_tag="186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1"
 default_source_tag="186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-huggingface-source-plan-20260624-concurrent"
-default_classifier_tag="186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260624"
+default_classifier_tag="186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260702-batched3"
 if [[ -n "${CHART_ECR_REPOSITORY_URL:-}" ]]; then
   default_embed_tag="${CHART_ECR_REPOSITORY_URL}:chart-embedder-plan-20260626-batchdocs1"
   default_source_tag="${CHART_ECR_REPOSITORY_URL}:chart-huggingface-source-plan-20260624-concurrent"
-  default_classifier_tag="${CHART_ECR_REPOSITORY_URL}:chart-classifier-plan-20260624"
+  default_classifier_tag="${CHART_ECR_REPOSITORY_URL}:chart-classifier-plan-20260702-batched3"
 fi
 
 embed_tag="${CHART_EMBED_IMAGE:-$default_embed_tag}"
@@ -69,6 +69,7 @@ if [[ "$builder" == "depot" ]]; then
     --platform "$platform"
     --build-context "layer_client=${layer_context}"
     --build-arg "PRELOAD_EVENTS_MODEL=${preload_events_model}"
+    --secret "id=hf_token,env=HF_TOKEN"
     -t "$classifier_tag"
   )
 elif [[ "$builder" == "docker" ]]; then
@@ -96,6 +97,7 @@ elif [[ "$builder" == "docker" ]]; then
     --platform "$platform"
     --build-context "layer_client=${layer_context}"
     --build-arg "PRELOAD_EVENTS_MODEL=${preload_events_model}"
+    --secret "id=hf_token,env=HF_TOKEN"
     -t "$classifier_tag"
   )
 else

@@ -89,6 +89,20 @@
       <code>events</code> filter over a routed search answers questions like <em>"who discontinued a statin due
       to an adverse reaction?"</em>. The cascade runs as a backfill; facets appear as it progresses through the
       corpus.</p>
+    <p><strong>Why self-host instead of a batch API?</strong> The natural baseline for classification at rest is
+      a provider batch endpoint (e.g. the Claude Message Batches API on Haiku, at half of realtime pricing). The
+      cascade beats that baseline roughly <strong>4–5× on marginal cost</strong>: one GPU pass derives every label
+      at once, the worker keeps the GPU saturated with continuous batching, and scale-to-zero means idle cost is
+      zero — while the notes never leave the cluster, which matters when the corpus is real clinical data rather
+      than published case reports.</p>
+    <table>
+      <tr><th>Classification path</th><th>~11k notes</th><th>~167k notes</th></tr>
+      <tr><td>Haiku 4.5 realtime API</td><td>~$31</td><td>~$460</td></tr>
+      <tr><td>Haiku 4.5 Batch API (baseline)</td><td>~$16</td><td>~$235</td></tr>
+      <tr><td><strong>This cascade</strong> (Gemma-2-9B, one A10G GPU)</td><td><strong>~$3–6</strong></td><td><strong>~$40–80</strong></td></tr>
+    </table>
+    <p class="doclink">Projected from measured token counts and on-demand GPU pricing; Layer's cost reporting is
+      the authoritative measurement.</p>
     <p class="doclink">Docs: <a href="https://hevlayer.com/docs/kubernetes/function-crd/" target="_blank" rel="noreferrer">Function resource</a>
       · <a href="https://hevlayer.com/docs/kubernetes/function-crd/#gpu-classifier" target="_blank" rel="noreferrer">GPU classifier</a></p>
 

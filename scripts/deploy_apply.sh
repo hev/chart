@@ -60,7 +60,7 @@ render_manifest() {
     default_image="186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1"
   elif [[ "$manifest" == "deploy/functions-events.yaml" && -n "${CHART_CLASSIFIER_IMAGE:-}" ]]; then
     image_var="$CHART_CLASSIFIER_IMAGE"
-    default_image="186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260624"
+    default_image="186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260702-batched3"
   else
     printf '%s\n' "$manifest"
     return 0

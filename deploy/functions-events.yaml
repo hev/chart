@@ -28,7 +28,7 @@ spec:
     # No computeClass: scaling.pool below pins the GPU pool, and the operator's
     # gateway-registration equality check chokes on the redundant field
     # (hev/layer#148 — the gateway strips it, so re-registration 409s forever).
-    image: 186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260624
+    image: 186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260702-batched3
     batchSize: 16                       # claim size; the worker keeps vLLM resident
                                         # and patches derived labels via tpuf.
     timeoutSeconds: 1200
@@ -39,11 +39,33 @@ spec:
           env:
             - name: CHART_EVENTS_MODEL
               value: google/gemma-2-9b-it     # open weights, A10G-fit (RFC 0072)
+            # FlashInfer JIT-compiles CUDA kernels at engine start and needs nvcc,
+            # which the runtime CUDA base doesn't ship (exit 127 → EngineCore death
+            # loop). Fall back to the PyTorch-native sampler.
+            - name: VLLM_USE_FLASHINFER_SAMPLER
+              value: "0"
+            # The lease must outlast one whole batched generate() over a claim.
+            - name: HEVLAYER_UDF_LEASE_SECONDS
+              value: "600"
             - name: LAYER_GATEWAY_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: chart-gateway
                   key: LAYER_GATEWAY_API_KEY
+            # gemma-2-9b-it is gated on HF and the image's bake-time preload is
+            # skipped without a build token (the /models cache ships empty), so
+            # the worker downloads weights at startup — authenticated, or it
+            # gets anonymous 429s and then the gated-repo wall.
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: chart-huggingface
+                  key: HF_TOKEN
+            - name: HUGGING_FACE_HUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: chart-huggingface
+                  key: HF_TOKEN
   scaling:
     pool: gpu                           # the one Function on the GPU pool
     mode: autoscale

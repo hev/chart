@@ -15,7 +15,7 @@ const INCLUDE = [
   "similar_patient_ids",
 ];
 
-const FACET_FIELDS = ["specialty", "age_band", "diagnosis_category", "gender", "events"];
+const FACET_FIELDS = ["specialty", "age_band", "diagnosis_category", "gender", "events", "discontinuation_reason", "has_med_discontinuation"];
 // Clickable facet rail → a turbolisp `filters` clause on the same routed query.
 // Scalars filter by equality; `events` is a []string, so it uses the turbopuffer
 // array Contains/ContainsAny ops. Mirrors search/app.py.

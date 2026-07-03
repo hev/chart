@@ -332,7 +332,9 @@ def test_classify_events_main_passes_once_from_cli(monkeypatch) -> None:
 
     monkeypatch.setattr(classify_events, "Settings", lambda: type("Settings", (), {"api_key": "key"})())
     monkeypatch.setattr(classify_events, "run_udf_worker", fake_run_udf_worker)
-    monkeypatch.setattr("sys.argv", ["classify_events", "--once"])
+    # The default loop is now the batched claim/complete worker; --per-item
+    # selects the client's per-item run_udf_worker path this test exercises.
+    monkeypatch.setattr("sys.argv", ["classify_events", "--once", "--per-item"])
 
     classify_events.main()
 
@@ -354,3 +356,49 @@ def test_classify_events_main_exits_before_worker_without_gateway_key(monkeypatc
 
     with pytest.raises(SystemExit, match="No gateway key"):
         classify_events.main()
+
+
+def test_digest_batch_one_generate_call_and_parse_fallback(monkeypatch) -> None:
+    """The whole batch goes through ONE engine.generate() (vLLM continuous
+    batching), empty notes are skipped without a GPU pass, and an unparseable
+    output degrades to an empty digest instead of failing the batch."""
+    calls = []
+
+    class FakeOut:
+        def __init__(self, text):
+            self.outputs = [type("O", (), {"text": text})()]
+
+    class FakeEngine:
+        def generate(self, prompts, params):
+            calls.append(list(prompts))
+            texts = [
+                '{"events": [{"type": "medication_discontinued", "drug": "metformin", "reason": "adverse_effect"}], "summary": "s", "diagnosis_category": "endocrine", "specialty": "endocrinology"}',
+                "not json",
+            ]
+            return [FakeOut(t) for t in texts[: len(prompts)]]
+
+    monkeypatch.setattr(classify_events, "_engine", lambda: FakeEngine())
+    monkeypatch.setattr(classify_events, "_sampling_params", lambda: None)
+
+    digests = classify_events.digest_batch(["note one", "", "note three"])
+
+    assert len(calls) == 1, "expected exactly one batched generate() call"
+    assert len(calls[0]) == 2, "empty note must not consume a GPU slot"
+    assert digests[0]["events"][0]["type"] == "medication_discontinued"
+    assert digests[1] == {"events": [], "summary": "", "diagnosis_category": "other", "specialty": "other"}
+    assert digests[2]["events"] == [], "parse failure degrades to empty digest"
+
+
+def test_batch_writeback_columns_aligned() -> None:
+    """Tier-2 labels for a claim come out as aligned column arrays — the
+    patch_columns multi-row shape (one write for N rows)."""
+    digests = [
+        {"events": [{"type": "medication_discontinued", "reason": "cost"}], "diagnosis_category": "cardiology", "specialty": "cardiology"},
+        {"events": [], "diagnosis_category": "other", "specialty": "other"},
+    ]
+    columns = classify_events._batch_writeback_columns(digests)
+    assert set(columns) == set(classify_events.WRITEBACK_FIELDS)
+    assert all(len(v) == 2 for v in columns.values())
+    assert columns["events"][0] == ["medication_discontinued"]
+    assert columns["has_med_discontinuation"] == [True, False]
+    assert columns["discontinuation_reason"] == ["cost", None]

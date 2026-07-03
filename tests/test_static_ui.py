@@ -59,7 +59,9 @@ def test_static_ui_surfaces_gemma_event_labels_in_results() -> None:
 
     assert "Array.isArray(row.events)" in source
     assert "row.discontinuation_reason" in source
-    assert "reason: ${row.discontinuation_reason}" in source
+    # The cascade labels are clickable filter tags now, not plain meta text.
+    assert 'data-field="discontinuation_reason"' in source
+    assert 'data-field="events"' in source
 
 
 def test_static_ui_surfaces_facet_snapshot_row_count_once_in_the_rail_footer() -> None:
@@ -103,7 +105,9 @@ def test_static_ui_hides_empty_facet_sections() -> None:
     # UDF-writeback facets (events / specialty / diagnosis) render nothing until the
     # enrichment cascade populates them, instead of showing a bare empty heading.
     assert "const hasContent = (f) =>" in source
-    assert "ordered.filter(hasContent)" in source
+    # Coverage booleans (has_med_discontinuation) inform the rail foot but are
+    # excluded from rendered facet sections.
+    assert "filter((f) => !HIDDEN_FIELDS.has(f)).filter(hasContent)" in source
 
 
 def test_static_ui_surfaces_declared_chip_expected_route() -> None:

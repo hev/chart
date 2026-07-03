@@ -1122,7 +1122,7 @@ def _runtime_status_complete(
         and targets.get("embed_compute_class") == "gpu"
         and targets.get("classifier_compute_class") == "gpu"
         and targets.get("embed_image") == "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1"
-        and targets.get("classifier_image") == "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260624"
+        and targets.get("classifier_image") == "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260702-batched3"
         and target_rows >= 167000
         and pipeline.get("pipeline_id") == targets.get("pipeline_id")
         and udf.get("udf_id") == targets.get("udf_id")
@@ -1209,10 +1209,10 @@ def _runtime_status_failures(
         failures.append(
             f"targets.embed_image={targets.get('embed_image')!r}, expected '186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-embedder-plan-20260626-batchdocs1'"
         )
-    if targets.get("classifier_image") != "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260624":
+    if targets.get("classifier_image") != "186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260702-batched3":
         failures.append(
             "targets.classifier_image="
-            f"{targets.get('classifier_image')!r}, expected '186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260624'"
+            f"{targets.get('classifier_image')!r}, expected '186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260702-batched3'"
         )
     if target_rows < 167000:
         failures.append(f"targets.full_corpus_notes={targets.get('full_corpus_notes')!r}, expected at least 167000")

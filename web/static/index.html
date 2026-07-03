@@ -30,6 +30,11 @@
     .agentic-toggle input { accent-color:#7c3aed; }
     .agentic-toggle .hint { font-size:.78rem; }
     .hit .agentmeta { color:#7c3aed; font-size:.76rem; }
+    /* Cascade labels on result cards — clickable, they toggle the rail filter. */
+    .etags { display:flex; flex-wrap:wrap; gap:.3rem; margin:.3rem 0 0; }
+    .etag { border:1px solid #d8c6f4; background:#f6f0fd; color:#5b21b6; border-radius:999px; padding:.12rem .55rem; font-size:.74rem; cursor:pointer; }
+    .etag:hover { border-color:#7c3aed; }
+    .etag.reason { border-color:#f3d9b1; background:#fdf6ec; color:#92400e; }
     /* Agentic rail: the sidebar becomes the run inspector — one card per planned
        variant, with what each contributed to the final ranking. */
     .rail .avariant { border:1px solid var(--line); border-radius:8px; padding:.5rem .55rem; margin:0 0 .5rem; font-size:.82rem; }
@@ -145,8 +150,12 @@
     const box = document.getElementById('box');
 
     // Field display, and the order the rail shows facets in (clinically-interesting first).
-    const FIELD_LABELS = { events:'Clinical event', specialty:'Specialty', diagnosis_category:'Diagnosis', age_band:'Age', gender:'Sex' };
-    const FIELD_ORDER = ['events', 'specialty', 'diagnosis_category', 'age_band', 'gender'];
+    const FIELD_LABELS = { events:'Clinical event', discontinuation_reason:'Stopped because', specialty:'Specialty', diagnosis_category:'Diagnosis', age_band:'Age', gender:'Sex' };
+    const FIELD_ORDER = ['events', 'discontinuation_reason', 'specialty', 'diagnosis_category', 'age_band', 'gender'];
+    // Booleans the cascade writes that inform the rail but aren't facet sections:
+    // has_med_discontinuation's true+false counts = rows the classifier has seen,
+    // which drives the "N cases classified" coverage line.
+    const HIDDEN_FIELDS = new Set(['has_med_discontinuation']);
 
     // UI state: the last text query (or '' to browse) and the active facet filters.
     let lastQuery = '';
@@ -490,11 +499,18 @@
       const title = row.title || row.pmid || rowId || 'Untitled patient note';
       const url = row.source_url || '';
       const age = row.age_band || row.age || '';
-      const eventText = Array.isArray(row.events) && row.events.length ? row.events.map(humanize).join(', ') : '';
-      const discontinuation = row.discontinuation_reason ? `reason: ${row.discontinuation_reason}` : '';
-      const facets = [age, row.gender, row.specialty, row.diagnosis_category, eventText, discontinuation]
+      const facets = [age, row.gender, row.specialty, row.diagnosis_category]
         .filter(Boolean)
         .join(' · ');
+      // Cascade output as clickable tags: each event toggles the matching rail
+      // filter, so the classifier's labels are a navigation surface, not trivia.
+      const events = Array.isArray(row.events) ? row.events : [];
+      const eventTags = events.map((ev) =>
+        `<button class="etag" data-field="events" data-value="${escapeAttr(ev)}">${escapeHtml(humanize(ev))}</button>`
+      ).join('');
+      const reasonTag = row.discontinuation_reason
+        ? `<button class="etag reason" data-field="discontinuation_reason" data-value="${escapeAttr(row.discontinuation_reason)}">stopped: ${escapeHtml(humanize(row.discontinuation_reason))}</button>`
+        : '';
       const text = (row.text || '').slice(0, 320);
       const similar = document.createElement('button');
       similar.textContent = 'Similar';
@@ -508,9 +524,11 @@
       hit.innerHTML = `
         <h2>${url ? `<a href="${escapeAttr(url)}" target="_blank" rel="noreferrer">${escapeHtml(title)}</a>` : escapeHtml(title)}</h2>
         <div class="meta">${escapeHtml(facets)}</div>
+        ${eventTags || reasonTag ? `<div class="etags">${eventTags}${reasonTag}</div>` : ''}
         ${agentMeta}
         <p>${escapeHtml(text)}${row.text && row.text.length > 320 ? '…' : ''}</p>
       `;
+      hit.querySelectorAll('.etag').forEach((b) => { b.onclick = () => toggleFilter(b.dataset.field, b.dataset.value); });
       if (rowId) hit.querySelector('.meta').append(' ', similar);
       return hit;
     }
@@ -561,7 +579,7 @@
       const hasContent = (f) => valuesFor(f).length > 0 || ((activeFilters.get(f) || new Set()).size > 0);
       const ordered = FIELD_ORDER.filter((f) => facetData[f]);
       for (const f of Object.keys(facetData)) if (!ordered.includes(f)) ordered.push(f);
-      const fields = ordered.filter(hasContent);
+      const fields = ordered.filter((f) => !HIDDEN_FIELDS.has(f)).filter(hasContent);
       if (!fields.length) { rail.innerHTML = ''; return; }
 
       let totalRows = null;
@@ -604,6 +622,15 @@
       } else {
         if (countsNote) footParts.push(countsNote);
         if (totalRows != null) footParts.push(`${Number(totalRows).toLocaleString()} cases indexed`);
+        // Cascade coverage: the classifier writes has_med_discontinuation on every
+        // row it digests, so true+false counts = rows classified so far. Honest
+        // about the backfill being partial rather than letting sparse event
+        // facets read as "rare events".
+        const hmd = (facetData.has_med_discontinuation && facetData.has_med_discontinuation.values) || [];
+        const classified = hmd.reduce((n, v) => n + (Number(v.count) || 0), 0);
+        if (classified > 0 && totalRows != null) {
+          footParts.push(`${classified.toLocaleString()} classified by the Gemma cascade${classified < totalRows ? ' (backfill in progress)' : ''}`);
+        }
         if (sha) footParts.push(`facet snapshot · ${sha}`);
       }
       const foot = footParts.length ? `<div class="railfoot">${escapeHtml(footParts.join(' · '))}</div>` : '';

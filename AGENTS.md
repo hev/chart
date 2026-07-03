@@ -128,6 +128,20 @@ Failing or blocked required gates:
 - A quota increase 4→16 vCPUs is filed (request `114eb0bc…`, us-east-1,
   acct 186219257916) and sits in AWS support review (CASE_OPENED). Once it
   lands, embed + classify run concurrently and this section should be removed.
+- `hev-shop-embed` (namespace hev-shop) is also **temporarily paused**: its
+  worker was wedged 13h on three poison documents (chunks gone from cache/S3,
+  hev/layer#149), holding the sole GPU with zero progress. Resume with
+  `kubectl patch pipeline hev-shop-embed -n hev-shop --type=merge -p
+  '{"spec":{"paused":false}}'` once #149 is addressed / the quota lands.
+- vLLM-in-a-Function learnings (five environmental failures, the checklist,
+  and the engine/worker/cluster gotchas) are captured in
+  `docs/vllm-udf-runbook.md`; the Layer-side proposal distilled from it is
+  RFC 0094 (`../layer/docs/rfcs/0094-gpu-inference-base-image.md`, a
+  supported `hevlayer-inference` base image, first rung of RFC 0068 §4).
+- The classifier worker downloads Gemma at startup: the image's weight bake
+  silently skipped (gated repo, no build token), so the Function injects
+  `HF_TOKEN` from the `chart-huggingface` Secret (1Password: "layer hugging
+  face token"). Re-bake the image with the token to restore fast cold starts.
 
 ## Main blockers
 

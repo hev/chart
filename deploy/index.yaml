@@ -41,6 +41,11 @@ spec:
       - diagnosis_category
       - gender
       - events
+      # Gemma-cascade outputs (functions/classify_events.py): the structured
+      # "why it was stopped" facet, and the coverage boolean the UI's
+      # "N classified" rail line sums (true+false counts = classified rows).
+      - discontinuation_reason
+      - has_med_discontinuation
     interval: 5m
     retention: never   # 167k notes, a few small fields — keep all history
   scan:

@@ -14,7 +14,14 @@ from .config import Settings
 # here against the shared gateway. age (continuous) is NOT a facet — age_band is.
 # `events` is the Gemma cascade's output (functions/classify_events.py) — the
 # clinical-event facet that lets "medication discontinued" compose with routing.
-FACET_FIELDS = ["specialty", "age_band", "diagnosis_category", "gender", "events"]
+# `discontinuation_reason` is the headline event's structured "why" (a rail
+# facet once the cascade backfills); `has_med_discontinuation` is a boolean the
+# UI uses for classifier coverage (true+false counts = classified rows), not a
+# rendered facet section.
+FACET_FIELDS = [
+    "specialty", "age_band", "diagnosis_category", "gender", "events",
+    "discontinuation_reason", "has_med_discontinuation",
+]
 SNAPSHOT_IN_PROGRESS = {"queued", "pending", "running"}
 
 # Explicit schema for the columns the backing store can't (or shouldn't) infer.

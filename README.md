@@ -65,6 +65,41 @@ same tour is served by the app itself at [`/help.html`](web/static/help.html).
    many labels (RFC 0072). It composes with routing: an `events` filter over a
    routed search — *"discontinued statins due to an adverse reaction"*.
 
+### The cascade vs. the Batch API (the cost pitch)
+
+The natural baseline for LLM classification at rest is a provider batch API —
+Trio classifies with the **Claude Message Batches API on Haiku** today (50% off
+realtime: $0.50 in / $2.50 out per MTok). The cascade's pitch is that a
+self-hosted open-weight model on Layer's Function runtime beats that baseline
+on marginal cost while keeping the data in-cluster:
+
+| Path (per note ≈ 1.2k in / 300 out tokens) | 11.4k-note backfill | 167k full corpus |
+|---|---|---|
+| Haiku 4.5 realtime | ~$31 | ~$460 |
+| Haiku 4.5 **Batch** (the baseline) | ~$16 | ~$235 |
+| **Cascade** — Gemma-2-9B on one `g5.xlarge` ($1.01/hr), batched | **~$3–6** | **~$40–80** |
+
+**~4–5× cheaper than Haiku Batch**, with three structural reasons it holds up:
+
+- **One pass, many labels.** The cascade derives `events`, `specialty`,
+  `diagnosis_category`, `has_med_discontinuation`, and the discontinuation
+  reason from a single digest — a per-label Batch-API pipeline pays per label.
+- **Continuous batching.** The worker feeds each claimed batch through one
+  vLLM `generate()` (`run_batched_worker`) and writes labels back as one
+  multi-row `patch_columns` — the GPU stays saturated, not round-tripping.
+- **Scale-to-zero.** Layer's Function runtime (KEDA on UDF queue depth) means
+  the GPU exists only while the queue is non-empty; idle cost is $0, same as
+  a batch API.
+
+The costs above are projections from measured token counts and the on-demand
+instance price; the authoritative number is Layer's own cost report
+(`scripts/layer_cost_report.sh --kind classifier`), captured as part of the
+Phase 4 gate once the backfill completes. Data locality is the non-cost half
+of the pitch: notes never leave the cluster, which matters more on Trio's real
+EHR corpus than on this public one. (For the runtime gap that would let Layer
+drive provider batch APIs *natively* for customers who prefer them, see Layer
+RFC 0093 — this workload is its acceptance case.)
+
 ## The Trio twin
 
 This is the public stand-in for Trio's `notesearch` (Snowflake-fed clinical-note
