@@ -36,6 +36,14 @@ Image (see `deploy/Dockerfile.gpu`, `classifier` stage):
 - [ ] `VLLM_USE_FLASHINFER_SAMPLER=0` unless the image has `nvcc`
 - [ ] Weights baked at build time, behind a BuildKit secret if gated; the
       preload must *fail the build* on failure, never skip
+- [ ] Weights mirrored to S3 (`s3://hevlayer-models-186219257916-us-east-1/
+      <org>/<model>/<revision>/`, `LATEST` pointer alongside) — in-region, no
+      HF dependency or rate limits at runtime. `_ensure_weights()` in
+      `functions/classify_events.py` restores the hub layout from the mirror
+      when the baked cache is absent; HF is only touched at mirror time.
+      Caveat: the runtime restore path needs S3 read on the models bucket —
+      grant it to the GPU node role (or IRSA on the Function's service
+      account) before relying on it; the baked image needs no IAM
 - [ ] Expect a fat image (ours: 25GB) — first pull per node is ~10–15 min on
       default EBS throughput; baked weights beat a 17GB HF download on every
       cold start anyway

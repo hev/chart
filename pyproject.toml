@@ -33,6 +33,7 @@ test = [
 classifier = [
     "vllm>=0.6; sys_platform == 'linux'",
     "transformers>=4.44",
+    "boto3>=1.34",           # S3 weights mirror (docs/vllm-udf-runbook.md)
 ]
 
 # Run-as-app, not build-as-package: uv only manages the dependency venv;

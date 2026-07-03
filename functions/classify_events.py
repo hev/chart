@@ -114,6 +114,56 @@ _DIGEST_PROMPT = (
 )
 
 
+# Weights source of record: our S3 mirror (in-region, no HF dependency, no
+# rate limits, licensing stays ours) — see docs/vllm-udf-runbook.md and RFC
+# 0094's weights-distribution section. The image bake remains the fast path;
+# this is the fallback when the cache is empty, replacing the old HF fallback.
+WEIGHTS_S3 = os.environ.get(
+    "CHART_WEIGHTS_S3",
+    "s3://hevlayer-models-186219257916-us-east-1/google/gemma-2-9b-it",
+)
+
+
+def _ensure_weights() -> None:
+    """If the HF cache has no snapshot of MODEL, restore it from the S3 mirror
+    into the standard hub layout so vLLM/huggingface_hub load fully offline.
+    No-op when the image bake did its job or MODEL isn't the mirrored model."""
+    if not WEIGHTS_S3 or MODEL != "google/gemma-2-9b-it":
+        return
+    hub = os.path.join(os.environ.get("HF_HOME", os.path.expanduser("~/.cache/huggingface")), "hub")
+    model_dir = os.path.join(hub, "models--google--gemma-2-9b-it")
+    snapshots = os.path.join(model_dir, "snapshots")
+    if os.path.isdir(snapshots) and any(
+        os.path.exists(os.path.join(snapshots, rev, "config.json")) for rev in os.listdir(snapshots)
+    ):
+        return
+    import boto3  # classifier extra; imported lazily so CPU-side tests don't need it
+
+    bucket, _, prefix = WEIGHTS_S3.removeprefix("s3://").partition("/")
+    s3 = boto3.client("s3")
+    rev = s3.get_object(Bucket=bucket, Key=f"{prefix}/LATEST")["Body"].read().decode().strip()
+    dest = os.path.join(snapshots, rev)
+    os.makedirs(dest, exist_ok=True)
+    paginator = s3.get_paginator("list_objects_v2")
+    keys = [
+        o["Key"]
+        for page in paginator.paginate(Bucket=bucket, Prefix=f"{prefix}/{rev}/")
+        for o in page.get("Contents", [])
+    ]
+    if not keys:
+        raise RuntimeError(f"weights mirror {WEIGHTS_S3}/{rev} is empty")
+    for key in keys:
+        target = os.path.join(dest, os.path.relpath(key, f"{prefix}/{rev}"))
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        s3.download_file(bucket, key, target)
+    # refs/main lets bare model-name lookups resolve without the network
+    refs = os.path.join(model_dir, "refs")
+    os.makedirs(refs, exist_ok=True)
+    with open(os.path.join(refs, "main"), "w") as f:
+        f.write(rev)
+    print(f"restored weights from {WEIGHTS_S3}@{rev} ({len(keys)} files)")
+
+
 @lru_cache(maxsize=1)
 def _engine():
     """Lazy vLLM engine — loaded once per worker and held resident across the
@@ -128,6 +178,7 @@ def _engine():
             "`classifier` extra installed."
         ) from exc
 
+    _ensure_weights()
     # Gemma-2-9B bf16 weights are 17.2GiB of a 24GB A10G; at the defaults
     # (util 0.90, max_seq_len 8192 from the model config, CUDA-graph capture)
     # only ~0.75GiB is left for KV cache and the engine refuses to start
