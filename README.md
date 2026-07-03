@@ -36,8 +36,9 @@ recall, grades the candidates, and returns the standard row shape. With
 provenance on, the inspector shows the agent's *plan* — the reformulated
 variants and inferred filters — and each hit carries its retrieval + relevance
 scores. Same "show the decision" DNA, one level up. The backing store is the
-first-party **hev search** engine behind the gateway (`deploy/vectorstore.yaml`,
-`kind: search`).
+gateway's default Turbopuffer store today; `deploy/vectorstore.yaml`
+(`kind: search`, the first-party hev search engine) is the declared target but
+has not been applied to the shared cluster yet — the cutover is pending.
 
 ## The features, and where they're documented
 
