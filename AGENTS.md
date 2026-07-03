@@ -125,8 +125,10 @@ Failing or blocked required gates:
   coverage line reads 10,678/11,373). Gemma weights are mirrored to
   s3://hevlayer-models-186219257916-us-east-1/google/gemma-2-9b-it/ and the
   worker restores from the mirror when the baked cache is absent.
-- KEDA scales the classifier to zero on the empty queue; new writes (embed
-  pipeline is still filling toward 167k) re-trigger via the write path.
+- Everything is scaled to zero: classifier drained, and the `chart-embed-gpu`
+  + `chart-ingest` Pipelines are **paused by choice** (2026-07-03 — "we have
+  enough corpus"; ~11.4k of the 167k target indexed). Unpause both to resume
+  corpus growth; new writes re-trigger classification via the write path.
 - Image rolls still require the hev/layer#148 dance: apply CR → DELETE
   /v2/udfs/chart-classify-events → wait re-register → resume → discover.
 
