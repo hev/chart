@@ -114,25 +114,22 @@ Failing or blocked required gates:
   status mismatch, and Layer autoscaling readiness.
 - `phase6_gate_complete`: blocked by the runtime status gate.
 
-## In-flight state (2026-07-02)
+## In-flight state (2026-07-03)
 
-- The classifier backfill is ACTIVE: the `chart-classify-events` UDF is resumed
-  with ~11.4k notes enqueued, driven via the gateway API because the operator
-  cannot re-register a changed Function (hev/layer#148).
-- The embed Pipeline `chart-embed-gpu` is **temporarily paused**
-  (`spec.paused: true`, patched live) to free the single GPU node for the
-  classifier — the AWS "Running On-Demand G and VT instances" vCPU quota (4)
-  allows exactly one GPU node. **Resume embed when the backfill drains or the
-  quota lands**: `kubectl patch pipeline chart-embed-gpu -n chart --type=merge
-  -p '{"spec":{"paused":false}}'`.
-- A quota increase 4→16 vCPUs is filed (request `114eb0bc…`, us-east-1,
-  acct 186219257916) and sits in AWS support review (CASE_OPENED). Once it
-  lands, embed + classify run concurrently and this section should be removed.
-- `hev-shop-embed` (namespace hev-shop) is also **temporarily paused**: its
-  worker was wedged 13h on three poison documents (chunks gone from cache/S3,
-  hev/layer#149), holding the sole GPU with zero progress. Resume with
-  `kubectl patch pipeline hev-shop-embed -n hev-shop --type=merge -p
-  '{"spec":{"paused":false}}'` once #149 is addressed / the quota lands.
+- The GPU vCPU quota bump landed (4→16, acct 186219257916/us-east-1);
+  `chart-embed-gpu` and `hev-shop-embed` are both **unpaused** and running
+  again. hev-shop's worker still spins on its three poison documents
+  (hev/layer#149) but no longer blocks anyone.
+- The classifier backfill is **halted by hev/layer#150**: re-discovery on the
+  kind=search namespace 400s (virtual `_hevlayer_*_stale_after` leaks into the
+  engine scan filter). The queue is empty, the `batched3` workers are healthy
+  and idle, and ~340 notes classified before the halt prove the writeback path.
+  When #150 lands: `POST /v2/udfs/chart-classify-events/discover`, then facet
+  refresh (`scripts/refresh_facets.sh`) + `scripts/layer_cost_report.sh --kind
+  classifier` + the phase4 gates.
+- Every classifier image roll still needs the #148 dance: apply CR →
+  `DELETE /v2/udfs/chart-classify-events` → wait re-register → resume →
+  discover → scale down old ReplicaSets.
 - vLLM-in-a-Function learnings (five environmental failures, the checklist,
   and the engine/worker/cluster gotchas) are captured in
   `docs/vllm-udf-runbook.md`; the Layer-side proposal distilled from it is
