@@ -114,47 +114,21 @@ Failing or blocked required gates:
   status mismatch, and Layer autoscaling readiness.
 - `phase6_gate_complete`: blocked by the runtime status gate.
 
-## In-flight state (2026-07-03)
+## In-flight state (2026-07-03, post-backfill)
 
-- **hev/layer#151 reopened (evening pass):** the facet-unnest fix (`e706c73`)
-  was rolled out of prod by the 14:15 UTC `gh150-marker-guard` gateway deploy
-  (image built from `86b8c90`, the fix's parent). A fresh `events` snapshot
-  still buckets serialized arrays. Both chart backends now unnest snapshot
-  array buckets client-side (`chart_common/gateway.py:unnest_array_facets`,
-  mirrored in `src/worker.js`) — exact counts, no-op once the gateway fix
-  redeploys. Serving image `mesh:chart-search-20260703` is live with this.
-- **hev/layer#152 filed:** today's layer-ns redeploys (13:15–14:15 UTC)
-  black-holed/502'd customer traffic; a browser search hung indefinitely.
-  chart hardening shipped alongside: 30s `AbortSignal.timeout` on every UI
-  fetch, and the FastAPI backend treats httpx transport errors as transient
-  (retry → clean 502, no more 500 tracebacks).
-- **Live `chart-notes` schema trimmed** (schema-only write, now also pinned in
-  `SCHEMA`): `title`/`pmid`/`age`/`chunk_id`/`chunk_index`/`patient_uid` are
-  `filterable: false`; only the rail facets, cascade booleans, and `phi_flag`
-  stay filterable.
-- The GPU vCPU quota bump landed (4→16, acct 186219257916/us-east-1);
-  `chart-embed-gpu` and `hev-shop-embed` are both **unpaused** and running
-  again. hev-shop's worker still spins on its three poison documents
-  (hev/layer#149) but no longer blocks anyone.
-- The classifier backfill is **halted by hev/layer#150**: re-discovery on the
-  kind=search namespace 400s (virtual `_hevlayer_*_stale_after` leaks into the
-  engine scan filter). The queue is empty, the `batched3` workers are healthy
-  and idle, and ~340 notes classified before the halt prove the writeback path.
-  When #150 lands: `POST /v2/udfs/chart-classify-events/discover`, then facet
-  refresh (`scripts/refresh_facets.sh`) + `scripts/layer_cost_report.sh --kind
-  classifier` + the phase4 gates.
-- Every classifier image roll still needs the #148 dance: apply CR →
-  `DELETE /v2/udfs/chart-classify-events` → wait re-register → resume →
-  discover → scale down old ReplicaSets.
-- vLLM-in-a-Function learnings (five environmental failures, the checklist,
-  and the engine/worker/cluster gotchas) are captured in
-  `docs/vllm-udf-runbook.md`; the Layer-side proposal distilled from it is
-  RFC 0094 (`../layer/docs/rfcs/0094-gpu-inference-base-image.md`, a
-  supported `hevlayer-inference` base image, first rung of RFC 0068 §4).
-- The classifier worker downloads Gemma at startup: the image's weight bake
-  silently skipped (gated repo, no build token), so the Function injects
-  `HF_TOKEN` from the `chart-huggingface` Secret (1Password: "layer hugging
-  face token"). Re-bake the image with the token to restore fast cold starts.
+- The classifier backfill is **COMPLETE**: 11,373/11,373 notes classified,
+  zero failures, ~4h at 48-58 notes/min on two GPUs. Measured cost $8.2
+  ($8.10 GPU + $0.13 Layer-metered; eval/out/classify-events-budget.json) —
+  ~2x under the Haiku Batch baseline; README's cost table carries the
+  measured numbers.
+- Facet rail is fully live (events unnested per hev/layer#151 fix, verified;
+  coverage line reads 10,678/11,373). Gemma weights are mirrored to
+  s3://hevlayer-models-186219257916-us-east-1/google/gemma-2-9b-it/ and the
+  worker restores from the mirror when the baked cache is absent.
+- KEDA scales the classifier to zero on the empty queue; new writes (embed
+  pipeline is still filling toward 167k) re-trigger via the write path.
+- Image rolls still require the hev/layer#148 dance: apply CR → DELETE
+  /v2/udfs/chart-classify-events → wait re-register → resume → discover.
 
 ## Main blockers
 
