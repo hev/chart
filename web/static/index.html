@@ -192,6 +192,13 @@
     let lastNote = '';
     let lastEcho = null;           // last search's {route, hybrid} gateway echo — drives the note viewer's term highlights
     let facetData = null;          // corpus-wide snapshot rail (stable value set + provenance)
+    // Corpus-rail load state. Declared HERE, with the rest of the UI state,
+    // because the module top-level `await loadFacets()` below runs before the
+    // helper section — a later `let` would be a temporal-dead-zone crash that
+    // kills the whole module (and the rail with it).
+    let facetLoading = false;      // a corpus-facet load is in flight
+    let facetError = false;        // the last corpus-facet load failed (shown in the rail)
+    let facetRetryMs = 5000;       // capped-backoff retry interval for failed loads
     let agenticInfo = null;        // last agentic run (agent echo + merge) — repurposes the rail
     let liveCounts = null;         // per-search counts from the Scans API (or null = show corpus)
     let countsNote = '';           // why live counts were withheld (the fuzzy-scan gap), shown in the rail foot
@@ -203,6 +210,10 @@
     // bands), so we fetch a deeper page in one request and walk it client-side.
     const PAGE_SIZE = 10;
     const FETCH_DEPTH = 50;        // the gateway/backend top_k cap
+    // The Agent's server-side budget (deploy/agent.yaml budget.deadlineMs) is 60s —
+    // a full-deadline reasoning loop is legitimate, so agentic search gets 2× the
+    // deadline instead of the standard 30s fail-fast (mirrored in both backends).
+    const AGENT_TIMEOUT_MS = 120_000;
     let allRows = [];
     let page = 0;
 
@@ -289,7 +300,7 @@
       parts.push(...params);
       const search = parts.join('&');
       try {
-        const data = await apiJson('/api/search?' + search + '&top_k=' + FETCH_DEPTH + (agentic ? '&agentic=1' : ''));
+        const data = await apiJson('/api/search?' + search + '&top_k=' + FETCH_DEPTH + (agentic ? '&agentic=1' : ''), agentic ? AGENT_TIMEOUT_MS : undefined);
         stopThinking();
         if (agentic) {
           // Facet filters (and the per-search rail scan) don't apply to agentic
@@ -698,7 +709,7 @@
     // per-search counts when a scan has landed. Values absent from the current match
     // set are kept (dimmed, count 0) so the option set stays stable and clickable.
     function valuesFor(field) {
-      const corpus = (facetData[field] && facetData[field].values) || [];
+      const corpus = (((facetData || {})[field]) || {}).values || [];
       const active = activeFilters.get(field) || new Set();
       if (!liveCounts) {
         return corpus.map((v) => ({ value: String(v.value), count: v.count, dim: false }));
@@ -719,14 +730,25 @@
 
     function renderRail() {
       if (agenticInfo) { renderAgentRail(); return; }
-      if (!facetData) { rail.innerHTML = ''; return; }
+      // The rail must be available without a search term: the corpus snapshot is
+      // its backbone, but when that load failed (or hasn't landed yet) render
+      // from the live per-search counts instead of going blank — and say what's
+      // happening rather than showing nothing.
+      const corpus = facetData || {};
+      const live = (liveCounts && liveCounts.fields) || {};
+      if (!facetData && !liveCounts) {
+        rail.innerHTML = facetError
+          ? '<div class="railfoot">Corpus facets unavailable — retrying…</div>'
+          : (facetLoading ? '<div class="railfoot">Loading corpus facets…</div>' : '');
+        return;
+      }
       // Drop facets with nothing to show — e.g. the UDF-writeback fields (events,
       // specialty, diagnosis) before the enrichment cascade has populated them — so
       // the rail never renders a bare, empty heading. A field reappears on its own
       // once it has values; an actively-filtered field is kept so it stays clearable.
       const hasContent = (f) => valuesFor(f).length > 0 || ((activeFilters.get(f) || new Set()).size > 0);
-      const ordered = FIELD_ORDER.filter((f) => facetData[f]);
-      for (const f of Object.keys(facetData)) if (!ordered.includes(f)) ordered.push(f);
+      const ordered = FIELD_ORDER.filter((f) => corpus[f] || live[f]);
+      for (const f of [...Object.keys(corpus), ...Object.keys(live)]) if (!ordered.includes(f)) ordered.push(f);
       const fields = ordered.filter((f) => !HIDDEN_FIELDS.has(f)).filter(hasContent);
       if (!fields.length) { rail.innerHTML = ''; return; }
 
@@ -747,7 +769,7 @@
             + `<span class="fname">${escapeHtml(humanize(v.value))}</span>`
             + `<span class="fcount">${Number(v.count).toLocaleString()}</span></button>`;
         }).join('');
-        const prov = (facetData[field] || {}).provenance || {};
+        const prov = (corpus[field] || {}).provenance || {};
         if (Number.isFinite(prov.row_count)) totalRows = prov.row_count;
         if (prov.sha) sha = String(prov.sha).slice(0, 8);
         return `<section class="facet"><h3>${escapeHtml(FIELD_LABELS[field] || field)}</h3>${values}</section>`;
@@ -788,26 +810,39 @@
     }
 
     async function loadFacets() {
+      if (facetLoading || facetData) return;
+      facetLoading = true;
+      renderRail();
       try {
         facetData = await apiJson('/api/facets');
+        facetError = false;
       } catch (err) {
         facetData = null;
+        facetError = true;
         console.error('facet rail failed to load', err);
+        // The corpus rail is the no-search-term entry point — never give it up
+        // for the session on one failed load; retry with capped backoff so it
+        // comes back on its own after a gateway blip.
+        window.setTimeout(loadFacets, facetRetryMs);
+        facetRetryMs = Math.min(facetRetryMs * 2, 30_000);
+      } finally {
+        facetLoading = false;
       }
       renderRail();
     }
 
     // --- Helpers -----------------------------------------------------------
 
-    async function apiJson(url) {
+    async function apiJson(url, timeoutMs = 30_000) {
       // Time-bound every API call: a backend stuck on a restarting gateway
-      // otherwise leaves "Searching…" up forever with no feedback.
+      // otherwise leaves "Searching…" up forever with no feedback. Callers with
+      // a bigger server-side budget (the agentic loop) pass their own timeout.
       let response;
       try {
-        response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+        response = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
       } catch (err) {
         if (err && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
-          throw new Error('no response after 30s — the gateway may be restarting; retry shortly');
+          throw new Error(`no response after ${Math.round(timeoutMs / 1000)}s — the gateway may be restarting; retry shortly`);
         }
         throw err;
       }

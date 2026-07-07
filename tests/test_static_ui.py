@@ -16,7 +16,7 @@ def test_static_ui_displays_source_license_and_safety_notice() -> None:
 def test_static_ui_is_wired_to_live_api_routes() -> None:
     source = INDEX.read_text()
 
-    assert "apiJson('/api/search?' + search + '&top_k=' + FETCH_DEPTH + (agentic ? '&agentic=1' : ''))" in source
+    assert "apiJson('/api/search?' + search + '&top_k=' + FETCH_DEPTH + (agentic ? '&agentic=1' : ''), agentic ? AGENT_TIMEOUT_MS : undefined)" in source
     assert "'q=' + encodeURIComponent(q)" in source
     assert "apiJson('/api/similar/'" in source
     assert "apiJson('/api/facets')" in source
@@ -39,7 +39,7 @@ def test_static_ui_renders_gateway_routing_decision_instead_of_inferring_route()
 def test_static_ui_treats_non_ok_api_responses_as_failures() -> None:
     source = INDEX.read_text()
 
-    assert "async function apiJson(url)" in source
+    assert "async function apiJson(url, timeoutMs = 30_000)" in source
     assert "if (!response.ok)" in source
     assert "data.detail || data.message || `HTTP ${response.status}`" in source
     assert "Search failed: ${escapeHtml(err.message || err)}" in source
@@ -218,3 +218,29 @@ def test_static_ui_note_viewer_highlights_gateway_lexical_tokens_only() -> None:
     assert "startsWith('fuzzy:')" in source
     assert "mterm fuzzy" in source
     assert "row['$fused']" in source
+
+
+def test_static_ui_corpus_rail_survives_a_failed_load_and_renders_without_a_query() -> None:
+    source = INDEX.read_text()
+
+    # The corpus rail (total facet counts, no search term) retries with capped
+    # backoff instead of giving up for the session on one failed load…
+    assert "window.setTimeout(loadFacets, facetRetryMs)" in source
+    assert "facetRetryMs = Math.min(facetRetryMs * 2, 30_000);" in source
+    assert "Corpus facets unavailable — retrying…" in source
+    # …and the rail can render from live per-search counts while the corpus
+    # snapshot set is missing, instead of blanking on `!facetData`.
+    assert "const corpus = facetData || {};" in source
+    assert "if (!facetData && !liveCounts)" in source
+
+
+def test_static_ui_rail_state_is_declared_before_the_top_level_facet_load() -> None:
+    """The module top-level `await loadFacets()` runs mid-file; any `let` it (or
+    renderRail) touches must be declared ABOVE that call. A later declaration is
+    a temporal-dead-zone ReferenceError that kills the whole module on load —
+    no rail, ever (shipped once: chart-search-20260703d)."""
+    source = INDEX.read_text()
+
+    load_call = source.index("await loadFacets();")
+    for state in ("let facetLoading", "let facetError", "let facetRetryMs", "let facetData", "let liveCounts"):
+        assert source.index(state) < load_call, f"{state} declared after the top-level loadFacets() call"
