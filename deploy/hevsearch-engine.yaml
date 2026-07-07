@@ -1,5 +1,7 @@
-# Illustrative hev search engine that deploy/vectorstore.yaml points at.
-# Not applied by chart directly; the shared Layer cluster owns production ops.
+# Illustrative hev search engine for the (unapplied) kind=search cutover.
+# deploy/vectorstore.yaml currently declares kind=turbopuffer — nothing points
+# here yet. Not applied by chart directly; the shared Layer cluster owns
+# production ops.
 apiVersion: v1
 kind: ServiceAccount
 metadata:

@@ -1,8 +1,9 @@
 # ApiKey — the minted key the search backends present to the gateway.
 #
 # Declarative equivalent of the LAYER_GATEWAY_API_KEY the backends load from the
-# environment. Two entitlements: data-plane read/write through the search-backed
-# store (scoped to the chart-notes namespace), and the right to invoke the
+# environment. Two entitlements: data-plane read/write through the backing
+# store (Turbopuffer today — scoped to the chart-notes namespace; needs the
+# mirror grant on vectorstore.turbopuffer-default, hev/layer#145), and the right to invoke the
 # agentic-search Agent (deploy/agent.yaml). The agent's reads still run under
 # this key's own vectorstore grant — `agent.<name>` governs who may invoke, not
 # what it reads. See docs/kubernetes/apikey-crd and docs/api/agents § Auth.
