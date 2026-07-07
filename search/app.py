@@ -25,7 +25,7 @@ from chart_common.gateway import (
     FACET_FIELDS,
     close_client,
     count_selector,
-    latest_facets,
+    latest_facets_many,
     make_client,
     scan_count,
     scan_facet_values,
@@ -52,6 +52,13 @@ INCLUDE = [
     "similar_patient_ids",
 ]
 TRANSIENT = {502, 503, 504}
+
+# The agentic path runs the configured Agent's whole reasoning loop in one
+# request — its server-side budget (deploy/agent.yaml budget.deadlineMs) is 60s,
+# so the standard 60s client timeout can cut a legitimate full-deadline run.
+# 2× the deadline leaves room for grading overhead and one transparent retry.
+# Mirrored by AGENT_TIMEOUT_MS in src/worker.js and web/static/index.html.
+AGENT_TIMEOUT_SECONDS = 120.0
 
 # The clickable facet rail narrows the search by attaching a turbolisp `filters`
 # clause to the same routed query (RFC 0076 § Search experience — "filterable by
@@ -101,13 +108,29 @@ async def lifespan(app: FastAPI):
     app.state.settings = Settings()
     app.state.embedder = Embedder(app.state.settings.embed_model)
     app.state.layer = make_client(app.state.settings)
+    app.state.layer_agent = make_client(app.state.settings, timeout=AGENT_TIMEOUT_SECONDS)
     try:
         yield
     finally:
         await close_client(app.state.layer)
+        await close_client(app.state.layer_agent)
 
 
 app = FastAPI(title="chart — clinical-notes routing demo", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def cache_policy(request, call_next):
+    """Without Cache-Control, browsers heuristically cache off Last-Modified
+    (~10% of the file's age) — after a deploy, users keep the stale UI for up
+    to ~an hour with no revalidation. Static pages revalidate every time
+    (no-cache still yields cheap 304s off StaticFiles' validators); API
+    responses are per-search and never worth caching."""
+    response = await call_next(request)
+    if "cache-control" not in response.headers:
+        is_api = request.url.path.startswith("/api/")
+        response.headers["cache-control"] = "no-store" if is_api else "no-cache"
+    return response
 
 
 def _dump(value):
@@ -185,7 +208,7 @@ async def _run_agent_query(query: str, *, top_k: int = 20) -> dict:
     for attempt in range(3):
         start = time.perf_counter()
         try:
-            resp = await app.state.layer.query_agent(app.state.settings.agent_name, body)
+            resp = await app.state.layer_agent.query_agent(app.state.settings.agent_name, body)
         except HevlayerError as exc:
             if exc.status_code not in TRANSIENT:
                 raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
@@ -280,16 +303,19 @@ async def facets(q: str = "", f: list[str] = Query(default=[]), route: str = "")
         return await facet_counts(q=q, f=f, route=route)
     out = {}
     try:
-        for field_name in FACET_FIELDS:
-            values, provenance = await latest_facets(
-                app.state.layer, app.state.settings.namespace, field=field_name
-            )
-            if values is not None:
-                out[field_name] = {"values": values, "provenance": provenance}
+        # One history walk for every rail field — each snapshot body fetched
+        # once — so the corpus rail is up fast on a bare page load.
+        results = await latest_facets_many(
+            app.state.layer, app.state.settings.namespace, fields=FACET_FIELDS
+        )
     except httpx.HTTPError as exc:
         raise HTTPException(
             status_code=502, detail=f"gateway unreachable: {exc.__class__.__name__}: {exc}"
         ) from exc
+    for field_name in FACET_FIELDS:
+        values, provenance = results[field_name]
+        if values is not None:
+            out[field_name] = {"values": values, "provenance": provenance}
     return JSONResponse(out)
 
 

@@ -29,10 +29,10 @@ class Settings(BaseSettings):
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
 
-    # Gateway. The backing store is hev search (deploy/vectorstore.yaml,
-    # kind=search): inbound auth uses Layer-issued scoped keys, so the key is a
-    # Layer inbound key scoped to chart-notes — the hev search data/admin tokens
-    # stay upstream-only.
+    # Gateway. The backing store is Turbopuffer (deploy/vectorstore.yaml,
+    # kind=turbopuffer — the kind=search cutover was attempted but never
+    # applied): the key is a Layer inbound key scoped to chart-notes, which
+    # needs the mirror grant on vectorstore.turbopuffer-default (hev/layer#145).
     gateway_url: str = Field(
         default="https://aws-us-east-1.hevlayer.com",
         validation_alias=AliasChoices("LAYER_GATEWAY_URL", "HEVLAYER_BASE_URL"),

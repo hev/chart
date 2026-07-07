@@ -73,12 +73,14 @@ SCHEMA: dict[str, Any] = {
 }
 
 
-def make_client(settings: Settings) -> AsyncHevlayer:
+def make_client(settings: Settings, *, timeout: float | None = None) -> AsyncHevlayer:
+    """Gateway client with the standard timeout, or an explicit override for
+    calls whose server-side budget exceeds it (the Agent reasoning loop)."""
     require_gateway_key(settings)
     return AsyncHevlayer(
         api_key=settings.api_key,
         base_url=settings.gateway_url,
-        timeout=settings.http_timeout_seconds,
+        timeout=settings.http_timeout_seconds if timeout is None else timeout,
     )
 
 
@@ -161,9 +163,12 @@ def count_selector(
       - keyword/fused query → an `fts` selector over the routed text field — the
         closest scan selector to the router's lexical legs. A `hybrid_text`
         selector (BM25 + per-token fuzzy, RFC 0057) would mirror the fused route
-        exactly and count the typo-surfaced matches too, but kind=search rejects
-        it today (hev/layer#141), so fuzzy-surfaced hits are approximated by
-        their exact lexical terms;
+        exactly and count the typo-surfaced matches too — and chart-notes lives
+        on Turbopuffer today (the kind=search cutover was never applied), where
+        it is supported; `fts` is a conservative leftover from when the store
+        was believed cut over to kind=search, which rejects it (hev/layer#141).
+        Until it moves, fuzzy-surfaced hits are approximated by their exact
+        lexical terms;
       - semantic query → an `ann` ball of `radius` (cosine distance) around the
         query vector, since semantic relevance has no exact lexical match set.
         Approximate by ANN recall.
@@ -256,26 +261,51 @@ def unnest_array_facets(values: list[dict]) -> list[dict]:
     return [{"value": v, "count": n} for v, n in counts.items()]
 
 
-async def latest_facets(
-    layer: AsyncHevlayer, namespace: str, *, field: str, limit: int = 14, history_limit: int = 20
-) -> tuple[list[dict] | None, dict | None]:
-    """Read the newest stored facet snapshot for `field` (value/count + sha
-    provenance), or (None, None) when no snapshot body exists yet."""
+async def latest_facets_many(
+    layer: AsyncHevlayer,
+    namespace: str,
+    *,
+    fields: list[str],
+    limit: int = 14,
+    history_limit: int = 20,
+) -> dict[str, tuple[list[dict] | None, dict | None]]:
+    """Newest stored snapshot values for several fields in ONE history walk —
+    each snapshot body is fetched at most once and every wanted field it carries
+    is taken from it (the same loop the Worker backend's facets() runs). The
+    per-field spelling walks history once per field, which is what made the bare
+    corpus rail slow. Fields absent from all of history map to (None, None)."""
+    out: dict[str, tuple[list[dict] | None, dict | None]] = {f: (None, None) for f in fields}
+    wanted = set(fields)
     history = await layer.list_namespace_history(namespace, limit=history_limit)
     for snapshot in history or []:
+        if not wanted:
+            break
         snapshot_sha = _read(snapshot, "sha")
         if not snapshot_sha:
             continue
         body = await layer.get_namespace_snapshot(namespace, snapshot_sha)
-        column = next((f for f in _read(body, "fields", []) if _read(f, "name") == field), None)
-        if column is None:
-            continue
-        raw = [{"value": _read(v, "v"), "count": _read(v, "n", 0)} for v in _read(column, "values", [])]
-        facets = sorted(unnest_array_facets(raw), key=lambda v: v["count"], reverse=True)[:limit]
         provenance = {
             "sha": _read(body, "sha") or snapshot_sha,
             "watermark_ms": _read(body, "watermark_ms"),
             "row_count": _read(body, "row_count"),
         }
-        return facets, provenance
-    return None, None
+        for column in _read(body, "fields", []) or []:
+            name = _read(column, "name")
+            if name not in wanted:
+                continue
+            raw = [{"value": _read(v, "v"), "count": _read(v, "n", 0)} for v in _read(column, "values", [])]
+            facets = sorted(unnest_array_facets(raw), key=lambda v: v["count"], reverse=True)[:limit]
+            out[name] = (facets, provenance)
+            wanted.discard(name)
+    return out
+
+
+async def latest_facets(
+    layer: AsyncHevlayer, namespace: str, *, field: str, limit: int = 14, history_limit: int = 20
+) -> tuple[list[dict] | None, dict | None]:
+    """Read the newest stored facet snapshot for `field` (value/count + sha
+    provenance), or (None, None) when no snapshot body exists yet."""
+    result = await latest_facets_many(
+        layer, namespace, fields=[field], limit=limit, history_limit=history_limit
+    )
+    return result[field]

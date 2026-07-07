@@ -26,6 +26,11 @@ const SCALAR_FACETS = new Set(["specialty", "age_band", "diagnosis_category", "g
 const ARRAY_FACETS = new Set(["events"]);
 const ARCTIC_QUERY_PREFIX = "Represent this sentence for searching relevant passages: ";
 const TRANSIENT = new Set([502, 503, 504]);
+// The Agent's server-side budget (deploy/agent.yaml budget.deadlineMs) is 60s —
+// a full-deadline reasoning loop is a legitimate run, so the agentic path gets
+// 2× the deadline instead of the standard 30s fail-fast. Mirrors
+// AGENT_TIMEOUT_SECONDS in search/app.py.
+const AGENT_TIMEOUT_MS = 120_000;
 
 function groupFilters(url) {
   const grouped = new Map();
@@ -233,7 +238,9 @@ async function facetCounts(request, env, url) {
 // semantic query counts an `ann` ball around the query vector (relevance has no
 // exact lexical set), keyword/fused an `fts` selector over the routed text field.
 // A `hybrid_text` selector (BM25 + per-token fuzzy, RFC 0057) would mirror the
-// fused route exactly, but kind=search rejects it today (hev/layer#141), so the
+// fused route exactly — and chart-notes lives on Turbopuffer today (the
+// kind=search cutover was never applied), where it is supported; `fts` is a
+// leftover from the assumed cutover (kind=search rejects it, hev/layer#141), so
 // fuzzy/typo matches are approximated by their exact lexical terms. At most one
 // ranked selector; vector+radius (semantic only) wins. Mirrors
 // chart_common.gateway.count_selector.
@@ -308,6 +315,7 @@ async function agentQuery(env, query, topK) {
         method: "POST",
         body: JSON.stringify(body),
         headers: { "content-type": "application/json" },
+        timeoutMs: AGENT_TIMEOUT_MS,
       });
       break;
     } catch (error) {
@@ -407,13 +415,15 @@ async function gatewayFetch(env, path, init = {}) {
     error.status = 503;
     throw error;
   }
+  const { timeoutMs = 30_000, ...rest } = init;
   const response = await fetch(`${gatewayUrl(env)}${path}`, {
-    ...init,
+    ...rest,
     // A restarting gateway can black-hole a connection; fail fast so the UI
-    // renders an error instead of an indefinite "Searching…".
-    signal: AbortSignal.timeout(30_000),
+    // renders an error instead of an indefinite "Searching…". Callers with a
+    // bigger server-side budget (the agentic loop) pass their own timeoutMs.
+    signal: AbortSignal.timeout(timeoutMs),
     headers: {
-      ...(init.headers || {}),
+      ...(rest.headers || {}),
       authorization: `Bearer ${env.LAYER_GATEWAY_API_KEY}`,
     },
   });

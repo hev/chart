@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import pytest
 
-from chart_common.gateway import latest_facets, materialize_facet_snapshots, require_gateway_key
+from chart_common.gateway import (
+    latest_facets,
+    latest_facets_many,
+    materialize_facet_snapshots,
+    require_gateway_key,
+)
 
 
 class SnapshotRef:
@@ -180,3 +185,58 @@ async def test_latest_facets_skips_history_entries_without_sha() -> None:
 
     assert facets == [{"value": "medication_discontinued", "count": 5}]
     assert provenance == {"sha": "older", "watermark_ms": 789, "row_count": 30}
+
+
+@pytest.mark.anyio
+async def test_latest_facets_many_walks_history_once_for_all_fields() -> None:
+    """The bare corpus rail fetches every facet in ONE history walk — each
+    snapshot body at most once — instead of a per-field walk (what made the
+    rail slow to appear without a search term)."""
+
+    class FakeLayer:
+        def __init__(self) -> None:
+            self.history_calls = 0
+            self.body_fetches: list[str] = []
+
+        async def list_namespace_history(self, namespace, *, limit):
+            self.history_calls += 1
+            return [SnapshotRef("newest"), SnapshotRef("older"), SnapshotRef("oldest")]
+
+        async def get_namespace_snapshot(self, namespace, sha):
+            self.body_fetches.append(sha)
+            if sha == "newest":
+                return SnapshotBody("newest", [Field("events", [FieldValue("medication_discontinued", 5)])])
+            if sha == "older":
+                return SnapshotBody(
+                    "older",
+                    [
+                        Field("age_band", [FieldValue("adult", 7)]),
+                        Field("gender", [FieldValue("F", 4)]),
+                    ],
+                )
+            raise AssertionError("walk should stop once every field is found")
+
+    layer = FakeLayer()
+    out = await latest_facets_many(layer, "chart-notes", fields=["events", "age_band", "gender"])
+
+    assert layer.history_calls == 1
+    assert layer.body_fetches == ["newest", "older"]  # each body once, stops when done
+    assert out["events"][0] == [{"value": "medication_discontinued", "count": 5}]
+    assert out["age_band"][0] == [{"value": "adult", "count": 7}]
+    assert out["age_band"][1]["sha"] == "older"
+    assert out["gender"][0] == [{"value": "F", "count": 4}]
+
+
+@pytest.mark.anyio
+async def test_latest_facets_many_returns_none_for_fields_absent_from_history() -> None:
+    class FakeLayer:
+        async def list_namespace_history(self, namespace, *, limit):
+            return [SnapshotRef("only")]
+
+        async def get_namespace_snapshot(self, namespace, sha):
+            return SnapshotBody("only", [Field("age_band", [FieldValue("adult", 7)])])
+
+    out = await latest_facets_many(FakeLayer(), "chart-notes", fields=["age_band", "specialty"])
+
+    assert out["age_band"][0] == [{"value": "adult", "count": 7}]
+    assert out["specialty"] == (None, None)

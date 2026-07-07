@@ -147,9 +147,11 @@ def test_worker_and_python_backends_share_facet_counts_scan_contract() -> None:
     # …backed by the Scans API: a count-mode scan for the matching total and a
     # values-mode scan per facet. The keyword/fused route counts via an `fts`
     # selector over the routed text field — a `hybrid_text` selector would mirror
-    # the fused route exactly (BM25 + per-token fuzzy) but kind=search rejects it
-    # today (hev/layer#141), so fuzzy-surfaced matches are approximated by their
-    # exact lexical terms.
+    # the fused route exactly (BM25 + per-token fuzzy) and is supported on the
+    # Turbopuffer store chart-notes actually lives on (the kind=search cutover
+    # was never applied; kind=search rejects it, hev/layer#141). `fts` is the
+    # conservative leftover: fuzzy-surfaced matches approximated by their exact
+    # lexical terms.
     assert 'mode: "count"' in source and 'mode: "values"' in source
     assert '/v2/namespaces/${encodeURIComponent(namespace(env))}/scans' in source
     assert '"mode": "count"' in gateway_py and '"mode": "values"' in gateway_py
@@ -215,3 +217,32 @@ def test_worker_rejects_non_get_methods_for_all_api_endpoints() -> None:
     assert 'async function facets(request, env, url)' in source
     assert 'assertMethod(request, "GET");' in source.split('if (url.pathname === "/api/config")')[1]
     assert 'assertMethod(request, "GET");' in source.split("async function facets(request, env, url)")[1]
+
+
+def test_agentic_search_gets_a_longer_timeout_than_the_30s_fail_fast_everywhere() -> None:
+    """The Agent's server-side budget (deploy/agent.yaml budget.deadlineMs=60s)
+    exceeds the standard 30s fail-fast; a full-deadline run is legitimate, so
+    every surface gives the agentic path 2x the deadline."""
+    worker = WORKER.read_text()
+    app_py = (WORKER.parent.parent / "search" / "app.py").read_text()
+    ui = (WORKER.parent.parent / "web" / "static" / "index.html").read_text()
+    agent_cr = (WORKER.parent.parent / "deploy" / "agent.yaml").read_text()
+
+    assert "deadlineMs: 60000" in agent_cr
+    assert "const AGENT_TIMEOUT_MS = 120_000;" in worker
+    assert "timeoutMs: AGENT_TIMEOUT_MS" in worker
+    assert "AGENT_TIMEOUT_SECONDS = 120.0" in app_py
+    assert "make_client(app.state.settings, timeout=AGENT_TIMEOUT_SECONDS)" in app_py
+    assert "layer_agent.query_agent" in app_py
+    assert "const AGENT_TIMEOUT_MS = 120_000;" in ui
+    assert "agentic ? AGENT_TIMEOUT_MS : undefined" in ui
+
+
+def test_python_backend_disables_heuristic_caching_so_deploys_show_up() -> None:
+    """No Cache-Control means browsers heuristically cache off Last-Modified and
+    keep a stale UI after deploys; the backend must say no-cache (static,
+    revalidate via 304) / no-store (API)."""
+    app_py = (WORKER.parent.parent / "search" / "app.py").read_text()
+
+    assert 'async def cache_policy(' in app_py
+    assert '"no-store" if is_api else "no-cache"' in app_py
