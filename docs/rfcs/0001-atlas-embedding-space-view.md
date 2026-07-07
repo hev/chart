@@ -117,10 +117,11 @@ gateway ── export ──► hevmap pipeline: UMAP → HDBSCAN → k-NN → l
 - **Source:** the `chart-notes` namespace **through the gateway wire** —
   `hevmap connect --type turbopuffer --host https://aws-us-east-1.hevlayer.com
   --namespace chart-notes` with a Layer inbound key. hev map neither knows nor
-  cares which backend Layer fronts (Turbopuffer today, hev search after the
-  cutover) — that opacity is the point, and it is what makes this a real
-  customer workload rather than a backdoor read. **The export never goes around
-  the gateway** (see § The Layer on-ramp for the fallback discipline).
+  cares which backend Layer fronts — **Turbopuffer today** (the hev search
+  cutover in `deploy/vectorstore.yaml` is declared but not applied); that
+  opacity is the point, and it is what makes this a real customer workload
+  rather than a backdoor read. **The export never goes around the gateway**
+  (see § The Layer on-ramp for the fallback discipline).
 - **Labels:** from the row attributes the cascade already wrote —
   `specialty` (cluster tint), `diagnosis_category` (point sub-label), `events`
   / `has_med_discontinuation` (the glow layer), `age_band` / `gender`
@@ -215,13 +216,14 @@ The export leg is the strategic payload of this RFC. Details, verified against
   the backing store has cut over to hev search and the gap is engine-side
   (scan behavior, cursor semantics), it routes to `hev/search` instead — same
   split as everything else.
-- **Fallback discipline:** if the gateway export path is blocked and the rows
-  still live in the default Turbopuffer store, a direct-tpuf export may unblock
-  a *build* while the issue is open — but the issue must exist first, and the
-  cutover to the gateway path is a phase gate below, not a nice-to-have. Once
-  chart's backend is hev search, no direct path exists at all: the gateway
-  export becomes the only road, and any gap is a blocking upstream issue by
-  construction.
+- **Fallback discipline:** the rows live in the default Turbopuffer store
+  today, so a direct-tpuf export exists as an escape hatch: if the gateway
+  export path is blocked, it may unblock a *build* while the issue is open —
+  but the issue must exist first, and the gateway path is a phase gate below,
+  not a nice-to-have. The fallback is temporary by construction: once chart
+  cuts over to hev search (`deploy/vectorstore.yaml`, pending), the gateway
+  export becomes the only road, and any gap is a blocking upstream issue.
+  Getting the export solid *before* the cutover is cheap insurance.
 
 ## What this explicitly does not do
 

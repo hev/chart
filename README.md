@@ -36,9 +36,10 @@ recall, grades the candidates, and returns the standard row shape. With
 provenance on, the inspector shows the agent's *plan* — the reformulated
 variants and inferred filters — and each hit carries its retrieval + relevance
 scores. Same "show the decision" DNA, one level up. The backing store is the
-gateway's default Turbopuffer store today; `deploy/vectorstore.yaml`
-(`kind: search`, the first-party hev search engine) is the declared target but
-has not been applied to the shared cluster yet — the cutover is pending.
+gateway's default Turbopuffer store — `deploy/vectorstore.yaml` declares
+exactly that (`kind: turbopuffer`). A cutover to the first-party hev search
+engine (`kind: search`) was attempted but never applied to the shared cluster
+(`deploy/hevsearch-engine.yaml` is the illustrative bundle for when it is).
 
 ## The features, and where they're documented
 

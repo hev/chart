@@ -158,8 +158,11 @@ Open Layer follow-ups from chart:
 - `hev/layer#138` — Layer does not build hev search FTS/ANN indexes on write;
   the cutover validation may require a manual `/fts-index` + `/index`
   intervention (as shelf's did).
-- `hev/layer#141` — the `hybrid_text` scan selector is rejected on kind=search;
-  chart's live facet counts use `fts` until it lands.
+- `hev/layer#141` — the `hybrid_text` scan selector is rejected on kind=search
+  stores. It does **not** currently bind chart: `chart-notes` is live on
+  Turbopuffer (the kind=search cutover was never applied — see
+  `deploy/vectorstore.yaml`). The live facet counts still use `fts`, a leftover
+  of the assumed cutover; moving them to `hybrid_text` is open.
 - `hev/layer#99` — paused Function is unobservable (UDF status 404); root cause of
   the empty `events`/`specialty`/`diagnosis_category` facets, which stay empty
   until the classifier backfill runs.
@@ -199,10 +202,12 @@ Landed / consumed (kept for traceability):
   external windowing loop is retired).
 - RFC 0082 K1 (`warmWindowSeconds`) — landed and consumed on the GPU embed
   Pipeline (`deploy/pipeline-embed.yaml`); the classifier `Function` still needs it.
-- Scans API `hybrid_text` selector (`hev/layer` `ed86668`) — landed, but
-  kind=search rejects it today (hev/layer#141), so since the hev search cutover
-  chart counts the keyword/fused route via an `fts` selector (fuzzy-surfaced
-  matches approximated by their exact lexical terms).
+- Scans API `hybrid_text` selector (`hev/layer` `ed86668`) — landed;
+  kind=search stores reject it (hev/layer#141), but `chart-notes` stayed on
+  Turbopuffer (the cutover was never applied), so it is usable here. chart
+  still counts the keyword/fused route via an `fts` selector (fuzzy-surfaced
+  matches approximated by their exact lexical terms) — a leftover of the
+  assumed cutover.
 
 Important current Layer notes:
 

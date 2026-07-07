@@ -80,6 +80,8 @@ Cluster (all found here first, all reported):
       operator re-create + resume + re-discover
 - [ ] hev/layer#150: on kind=search namespaces, re-discovery after the first
       completions 400s (virtual `_hevlayer_*_stale_after` leaks into the
-      engine filter) — the backfill can only be restarted by a Layer fix
+      engine filter) — the backfill can only be restarted by a Layer fix.
+      (kind=search only; `chart-notes` is on Turbopuffer today, so this does
+      not currently bind chart)
 - [ ] hev/layer#149: a poison document in *another* tenant's pipeline can hold
       the shared GPU with zero progress; queue depth is not progress
