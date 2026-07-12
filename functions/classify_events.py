@@ -30,10 +30,11 @@ discontinued due to an adverse reaction" = an `events` filter over routed search
 
 from __future__ import annotations
 
-import asyncio
 import argparse
+import asyncio
 import json
 import os
+import re
 from functools import lru_cache
 from typing import Any
 
@@ -58,7 +59,52 @@ EVENT_TYPES = [
     "death",
 ]
 
-WRITEBACK_FIELDS = [
+EVENT_TYPES_V2 = [
+    "presentation_or_symptom_change",
+    "diagnostic_workup",
+    "diagnosis_established",
+    "diagnosis_revised_or_ruled_out",
+    "procedure_or_intervention",
+    "procedure_complication",
+    "medication_started",
+    "medication_dose_changed",
+    "medication_stopped",
+    "treatment_response",
+    "treatment_failure_or_recurrence",
+    "adverse_drug_reaction",
+    "non_drug_complication",
+    "care_transition",
+    "incidental_finding",
+    "severe_outcome_or_death",
+]
+
+EVENT_POLARITIES_V2 = ["affirmed", "negated", "historical_or_routine"]
+
+EVENT_GROUPS_V2 = {
+    "presentation_or_symptom_change": "clinical_presentation",
+    "diagnostic_workup": "diagnosis",
+    "diagnosis_established": "diagnosis",
+    "diagnosis_revised_or_ruled_out": "diagnosis",
+    "procedure_or_intervention": "procedure",
+    "procedure_complication": "complication",
+    "medication_started": "treatment_change",
+    "medication_dose_changed": "treatment_change",
+    "medication_stopped": "treatment_change",
+    "treatment_response": "treatment_response",
+    "treatment_failure_or_recurrence": "treatment_response",
+    "adverse_drug_reaction": "complication",
+    "non_drug_complication": "complication",
+    "care_transition": "care_transition",
+    "incidental_finding": "diagnosis",
+    "severe_outcome_or_death": "outcome",
+}
+
+MIN_EVENT_CONFIDENCE_V2 = {
+    "medication_stopped": 0.75,
+}
+DEFAULT_MIN_EVENT_CONFIDENCE_V2 = 0.5
+
+LEGACY_WRITEBACK_FIELDS = [
     "events",
     "has_med_discontinuation",
     "has_adverse_event",
@@ -66,6 +112,19 @@ WRITEBACK_FIELDS = [
     "specialty",
     "discontinuation_reason",
 ]
+
+V2_WRITEBACK_FIELDS = [
+    "events_v2",
+    "event_groups_v2",
+    "event_confidence_v2",
+    "event_spans_v2",
+    "has_treatment_change_v2",
+    "has_treatment_response_v2",
+    "has_complication_v2",
+    "has_care_transition_v2",
+]
+
+WRITEBACK_FIELDS = LEGACY_WRITEBACK_FIELDS + V2_WRITEBACK_FIELDS
 
 DISCONTINUATION_REASONS = [
     "adverse_effect", "ineffective", "condition_resolved", "patient_choice",
@@ -93,6 +152,23 @@ DIGEST_SCHEMA = {
                 "required": ["type"],
             },
         },
+        "events_v2": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "type": {"type": "string", "enum": EVENT_TYPES_V2},
+                    "polarity": {"type": "string", "enum": EVENT_POLARITIES_V2},
+                    "span_quote": {"type": "string"},
+                    "drug_or_treatment": {"type": "string"},
+                    "procedure": {"type": "string"},
+                    "diagnosis": {"type": "string"},
+                    "temporal_context": {"type": "string"},
+                    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                },
+                "required": ["type", "polarity", "span_quote", "confidence"],
+            },
+        },
         "diagnosis_category": {"type": "string"},
         "specialty": {"type": "string"},
     },
@@ -104,14 +180,41 @@ DIGEST_SCHEMA = {
 
 _DIGEST_PROMPT = (
     "You are a clinical information extractor. Read the patient note and return the "
-    "structured digest. List every clinical event; for medication_discontinued, set "
-    "`drug` and, if stated, `reason`. Do not infer events that are not described. "
+    "structured digest. Preserve the legacy `events` field for compatibility. Also "
+    "emit `events_v2` using the balanced family taxonomy below. Do not infer events "
+    "that are not described. "
     "Set `specialty` to the single medical specialty that would own this case "
     "(e.g. cardiology, oncology, neurology, infectious_disease, endocrinology, "
     "pediatrics, psychiatry, nephrology, gastroenterology, pulmonology) and "
     "`diagnosis_category` to the primary diagnosis area in the same lowercase_snake "
-    "style. Use `other` only when genuinely unclassifiable.\n\nNote:\n{note}"
+    "style. Use `other` only when genuinely unclassifiable.\n\n"
+    "For every v2 event, set `type`, `polarity`, `span_quote`, and `confidence`. "
+    "`span_quote` must be a short exact quote from the note. Use `affirmed` only for "
+    "current case events, `negated` for denied or absent events, and "
+    "`historical_or_routine` for past history, routine course completion, or "
+    "background care. Families are symmetric siblings: presentation_or_symptom_change; "
+    "diagnostic_workup; diagnosis_established; diagnosis_revised_or_ruled_out; "
+    "procedure_or_intervention; procedure_complication; medication_started; "
+    "medication_dose_changed; medication_stopped; treatment_response; "
+    "treatment_failure_or_recurrence; adverse_drug_reaction; non_drug_complication; "
+    "care_transition; incidental_finding; severe_outcome_or_death. "
+    "For medication_stopped, require explicit drug or treatment evidence. Do not mark "
+    "medication_stopped for negative or non-treatment phrases such as \"vomiting stopped\", "
+    "\"no medications discontinued\", or \"interrupted sutures\".\n\n"
+    "Deterministic guard hints, for evidence windows only:\n{guards}\n\nNote:\n{note}"
 )
+
+_GUARD_PATTERNS = {
+    "medication_stop": r"\b(discontinu(?:e|ed|ation|ing)|stopp(?:ed|ing)?|withdraw(?:n|al)|cessation|suspend(?:ed|ing)?)\b",
+    "care_transition": r"\b(admitted|admission|hospitali[sz]ed|discharged|follow-?up|transferred)\b",
+    "procedure": r"\b(biopsy|surgery|operation|resection|procedure|intervention|catheter|intubation|stent|graft|suture)\b",
+    "diagnostic_workup": r"\b(CT|MRI|ultrasound|x-?ray|scan|imaging|biopsy|laboratory|revealed|showed|demonstrated)\b",
+    "response_failure": r"\b(improv(?:ed|ement)|resolved|remission|responded|failed|failure|worsen(?:ed|ing)|recurr(?:ed|ence)|relapse[ad]?)\b",
+    "adverse_reaction": r"\b(adverse|reaction|toxicity|side effects?|drug-induced|allerg(?:y|ic)|complication)\b",
+}
+
+_NEGATION_WINDOW = re.compile(r"\b(no|not|without|denied|denies|never|negative for|free of)\b", re.I)
+_ROUTINE_WINDOW = re.compile(r"\b(history of|previous|previously|prior|routine|completed|after completion)\b", re.I)
 
 
 # Weights source of record: our S3 mirror (in-region, no HF dependency, no
@@ -216,7 +319,7 @@ def digest_batch(note_texts: list[str]) -> list[dict]:
     empty = {"events": [], "summary": "", "diagnosis_category": "other", "specialty": "other"}
     # Rows are ~512-token chunks, but guard the engine's max_model_len (4096)
     # against outliers: ~12k chars ≈ 3k tokens leaves room for prompt + output.
-    prompts = [_DIGEST_PROMPT.format(note=t[:12000]) for t in note_texts]
+    prompts = [_digest_prompt(t[:12000]) for t in note_texts]
     live = [i for i, t in enumerate(note_texts) if t]
     digests: list[dict] = [dict(empty) for _ in note_texts]
     if not live:
@@ -244,6 +347,32 @@ def derive_labels(d: dict) -> dict:
     }
 
 
+def derive_labels_v2(d: dict) -> dict:
+    """Tier 2 v2 — only affirmed, quoted, sufficiently confident events become facets."""
+    kept = [_normalize_event_v2(e) for e in _event_items_v2(d)]
+    kept = [e for e in kept if e and _event_v2_facetable(e)]
+    events = sorted({e["type"] for e in kept})
+    groups = sorted({EVENT_GROUPS_V2[e] for e in events})
+    confidence = {
+        event_type: max(e["confidence"] for e in kept if e["type"] == event_type)
+        for event_type in events
+    }
+    spans = {
+        event_type: [e["span_quote"] for e in kept if e["type"] == event_type]
+        for event_type in events
+    }
+    return {
+        "events_v2": events,
+        "event_groups_v2": groups,
+        "event_confidence_v2": confidence,
+        "event_spans_v2": spans,
+        "has_treatment_change_v2": bool({"medication_started", "medication_dose_changed", "medication_stopped"} & set(events)),
+        "has_treatment_response_v2": bool({"treatment_response", "treatment_failure_or_recurrence"} & set(events)),
+        "has_complication_v2": bool({"adverse_drug_reaction", "procedure_complication", "non_drug_complication"} & set(events)),
+        "has_care_transition_v2": "care_transition" in events,
+    }
+
+
 def discontinuation_reason(d: dict) -> str | None:
     return next(
         (
@@ -262,10 +391,83 @@ def _event_items(d: dict) -> list[dict]:
     return [event for event in events if isinstance(event, dict)]
 
 
+def _event_items_v2(d: dict) -> list[dict]:
+    events = d.get("events_v2", [])
+    if not isinstance(events, list):
+        return []
+    return [event for event in events if isinstance(event, dict)]
+
+
 def _clean_label(value: Any, *, default: str = "other") -> str:
     if isinstance(value, str) and value.strip():
         return value.strip()
     return default
+
+
+def _digest_prompt(note: str) -> str:
+    return _DIGEST_PROMPT.format(note=note, guards=json.dumps(prepass_guards(note), ensure_ascii=True))
+
+
+def prepass_guards(note_text: str) -> list[dict]:
+    """Cheap candidate spans and polarity hints for the model; not final labels."""
+    guards = []
+    for family, pattern in _GUARD_PATTERNS.items():
+        for match in re.finditer(pattern, note_text, flags=re.I):
+            start = max(0, match.start() - 80)
+            end = min(len(note_text), match.end() + 80)
+            window = note_text[start:end].strip()
+            prefix = note_text[max(0, match.start() - 80):match.start()]
+            polarity_hint = "affirmed"
+            if _NEGATION_WINDOW.search(prefix):
+                polarity_hint = "negated"
+            elif _ROUTINE_WINDOW.search(prefix):
+                polarity_hint = "historical_or_routine"
+            guards.append(
+                {
+                    "family_hint": family,
+                    "term": match.group(0),
+                    "span": window,
+                    "polarity_hint": polarity_hint,
+                }
+            )
+    return guards[:24]
+
+
+def _normalize_event_v2(event: dict) -> dict | None:
+    event_type = event.get("type")
+    if event_type not in EVENT_TYPES_V2:
+        return None
+    polarity = event.get("polarity")
+    if polarity not in EVENT_POLARITIES_V2:
+        polarity = "affirmed"
+    span = event.get("span_quote")
+    if not isinstance(span, str) or not span.strip():
+        span = ""
+    confidence = event.get("confidence")
+    if not isinstance(confidence, int | float):
+        confidence = 1.0
+    normalized: dict[str, Any] = {
+        "type": event_type,
+        "polarity": polarity,
+        "span_quote": span.strip(),
+        "confidence": max(0.0, min(1.0, float(confidence))),
+    }
+    for field in ("drug_or_treatment", "procedure", "diagnosis", "temporal_context"):
+        value = event.get(field)
+        if isinstance(value, str) and value.strip():
+            normalized[field] = value.strip()
+    return normalized
+
+
+def _event_v2_facetable(event: dict) -> bool:
+    if event["polarity"] != "affirmed" or not event["span_quote"]:
+        return False
+    threshold = MIN_EVENT_CONFIDENCE_V2.get(event["type"], DEFAULT_MIN_EVENT_CONFIDENCE_V2)
+    if event["confidence"] < threshold:
+        return False
+    if event["type"] == "medication_stopped" and not event.get("drug_or_treatment"):
+        return False
+    return True
 
 
 def refine_discontinuation(note_text: str) -> dict:
@@ -312,12 +514,20 @@ def _parse_digest(text: str) -> dict:
         if reason in DISCONTINUATION_REASONS:
             normalized["reason"] = reason
         events.append(normalized)
-    return {
+    events_v2 = [
+        normalized
+        for event in _event_items_v2(parsed)
+        if (normalized := _normalize_event_v2(event)) is not None
+    ]
+    digest = {
         "summary": _clean_label(parsed.get("summary"), default=""),
         "events": events,
         "diagnosis_category": _clean_label(parsed.get("diagnosis_category")),
         "specialty": _clean_label(parsed.get("specialty")),
     }
+    if "events_v2" in parsed:
+        digest["events_v2"] = events_v2
+    return digest
 
 
 # --- The UDF entrypoint. ------------------------------------------------------
@@ -339,6 +549,7 @@ async def classify_events_udf(
     note = "" if text is None else str(text)
     d = digest(note)
     labels = derive_labels(d)
+    labels_v2 = derive_labels_v2(d)
     if tpuf is not None and id:
         attrs = {
             "events": [labels["events"]],
@@ -350,6 +561,19 @@ async def classify_events_udf(
                 discontinuation_reason(d) if labels["has_med_discontinuation"] else None
             ],
         }
+        if "events_v2" in d:
+            attrs.update(
+                {
+                    "events_v2": [labels_v2["events_v2"]],
+                    "event_groups_v2": [labels_v2["event_groups_v2"]],
+                    "event_confidence_v2": [labels_v2["event_confidence_v2"]],
+                    "event_spans_v2": [labels_v2["event_spans_v2"]],
+                    "has_treatment_change_v2": [labels_v2["has_treatment_change_v2"]],
+                    "has_treatment_response_v2": [labels_v2["has_treatment_response_v2"]],
+                    "has_complication_v2": [labels_v2["has_complication_v2"]],
+                    "has_care_transition_v2": [labels_v2["has_care_transition_v2"]],
+                }
+            )
         await tpuf.patch_columns(Settings().namespace, [str(id)], attrs)
     return labels["events"]
 
@@ -360,6 +584,7 @@ def _batch_writeback_columns(digests: list[dict]) -> dict[str, list[Any]]:
     columns: dict[str, list[Any]] = {field: [] for field in WRITEBACK_FIELDS}
     for d in digests:
         labels = derive_labels(d)
+        labels_v2 = derive_labels_v2(d)
         columns["events"].append(labels["events"])
         columns["has_med_discontinuation"].append(labels["has_med_discontinuation"])
         columns["has_adverse_event"].append(labels["has_adverse_event"])
@@ -368,6 +593,14 @@ def _batch_writeback_columns(digests: list[dict]) -> dict[str, list[Any]]:
         columns["discontinuation_reason"].append(
             discontinuation_reason(d) if labels["has_med_discontinuation"] else None
         )
+        columns["events_v2"].append(labels_v2["events_v2"])
+        columns["event_groups_v2"].append(labels_v2["event_groups_v2"])
+        columns["event_confidence_v2"].append(labels_v2["event_confidence_v2"])
+        columns["event_spans_v2"].append(labels_v2["event_spans_v2"])
+        columns["has_treatment_change_v2"].append(labels_v2["has_treatment_change_v2"])
+        columns["has_treatment_response_v2"].append(labels_v2["has_treatment_response_v2"])
+        columns["has_complication_v2"].append(labels_v2["has_complication_v2"])
+        columns["has_care_transition_v2"].append(labels_v2["has_care_transition_v2"])
     return columns
 
 

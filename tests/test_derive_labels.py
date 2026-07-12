@@ -402,3 +402,165 @@ def test_batch_writeback_columns_aligned() -> None:
     assert columns["events"][0] == ["medication_discontinued"]
     assert columns["has_med_discontinuation"] == [True, False]
     assert columns["discontinuation_reason"] == ["cost", None]
+
+
+def _v2_event(event_type: str, **extra):
+    event = {
+        "type": event_type,
+        "polarity": "affirmed",
+        "span_quote": f"{event_type} quote",
+        "confidence": 0.9,
+    }
+    event.update(extra)
+    return event
+
+
+def test_derive_labels_v2_facets_all_balanced_families() -> None:
+    events = [
+        _v2_event(event_type, drug_or_treatment="metformin" if event_type == "medication_stopped" else "")
+        for event_type in classify_events.EVENT_TYPES_V2
+    ]
+
+    labels = classify_events.derive_labels_v2({"events_v2": events})
+
+    assert labels["events_v2"] == sorted(classify_events.EVENT_TYPES_V2)
+    assert labels["event_groups_v2"] == sorted(set(classify_events.EVENT_GROUPS_V2.values()))
+    assert labels["event_confidence_v2"]["medication_stopped"] == 0.9
+    assert labels["event_spans_v2"]["diagnostic_workup"] == ["diagnostic_workup quote"]
+
+
+def test_derive_labels_v2_negative_med_stop_cases_do_not_facet() -> None:
+    labels = classify_events.derive_labels_v2(
+        {
+            "events_v2": [
+                _v2_event("medication_stopped", span_quote="vomiting stopped"),
+                _v2_event(
+                    "medication_stopped",
+                    polarity="negated",
+                    span_quote="no medications discontinued",
+                    drug_or_treatment="medications",
+                ),
+                _v2_event("medication_stopped", span_quote="interrupted sutures"),
+            ]
+        }
+    )
+
+    assert labels["events_v2"] == []
+    assert labels["has_treatment_change_v2"] is False
+
+
+def test_derive_labels_v2_requires_affirmed_polarity_and_span_quote() -> None:
+    labels = classify_events.derive_labels_v2(
+        {
+            "events_v2": [
+                _v2_event("care_transition", polarity="negated", span_quote="not admitted"),
+                _v2_event("diagnostic_workup", polarity="historical_or_routine", span_quote="prior CT showed"),
+                _v2_event("adverse_drug_reaction", span_quote=""),
+                _v2_event("medication_stopped", drug_or_treatment="statin", span_quote="statin was stopped"),
+            ]
+        }
+    )
+
+    assert labels["events_v2"] == ["medication_stopped"]
+    assert labels["has_treatment_change_v2"] is True
+    assert labels["has_care_transition_v2"] is False
+    assert labels["has_complication_v2"] is False
+
+
+def test_derive_labels_v2_grouped_booleans() -> None:
+    labels = classify_events.derive_labels_v2(
+        {
+            "events_v2": [
+                _v2_event("medication_started"),
+                _v2_event("treatment_failure_or_recurrence"),
+                _v2_event("procedure_complication"),
+                _v2_event("care_transition"),
+            ]
+        }
+    )
+
+    assert labels["has_treatment_change_v2"] is True
+    assert labels["has_treatment_response_v2"] is True
+    assert labels["has_complication_v2"] is True
+    assert labels["has_care_transition_v2"] is True
+
+
+def test_parse_digest_normalizes_v2_events() -> None:
+    parsed = classify_events._parse_digest(
+        """
+        {
+          "events": [],
+          "events_v2": [
+            {
+              "type": "medication_stopped",
+              "polarity": "affirmed",
+              "span_quote": " statin was stopped ",
+              "drug_or_treatment": " statin ",
+              "confidence": 0.82
+            },
+            {"type": "invented", "polarity": "affirmed", "span_quote": "bad", "confidence": 1.0}
+          ]
+        }
+        """
+    )
+
+    assert parsed["events_v2"] == [
+        {
+            "type": "medication_stopped",
+            "polarity": "affirmed",
+            "span_quote": "statin was stopped",
+            "confidence": 0.82,
+            "drug_or_treatment": "statin",
+        }
+    ]
+
+
+def test_prepass_guards_mark_candidate_spans_and_polarity_hints() -> None:
+    guards = classify_events.prepass_guards(
+        "No medications discontinued. The patient was admitted and CT showed pneumonia. "
+        "Vomiting stopped after fluids; interrupted sutures were placed."
+    )
+
+    assert any(g["family_hint"] == "medication_stop" and g["polarity_hint"] == "negated" for g in guards)
+    assert any(g["family_hint"] == "care_transition" for g in guards)
+    assert any(g["family_hint"] == "diagnostic_workup" for g in guards)
+    assert any("interrupted sutures" in g["span"] for g in guards)
+
+
+def test_digest_prompt_includes_balanced_v2_contract_and_negative_examples() -> None:
+    prompt = classify_events._digest_prompt("vomiting stopped; no medications discontinued; interrupted sutures")
+
+    for event_type in classify_events.EVENT_TYPES_V2:
+        assert event_type in prompt
+    assert "medication_stopped" in prompt
+    assert "medication_discontinued as the headline" not in prompt
+    assert '"vomiting stopped"' in prompt
+    assert '"no medications discontinued"' in prompt
+    assert '"interrupted sutures"' in prompt
+    assert "`span_quote` must be a short exact quote" in prompt
+
+
+def test_classify_events_udf_patches_v2_fields_when_digest_contains_v2(monkeypatch) -> None:
+    monkeypatch.setattr(
+        classify_events,
+        "digest",
+        lambda note: {
+            "events": [],
+            "events_v2": [
+                _v2_event("medication_stopped", drug_or_treatment="statin", span_quote="statin was stopped"),
+                _v2_event("care_transition", span_quote="patient was admitted"),
+            ],
+            "diagnosis_category": "cardiovascular",
+            "specialty": "cardiology",
+        },
+    )
+    tpuf = FakeTpuf()
+
+    asyncio.run(classify_events.classify_events_udf(id="patient-v2", text="note", tpuf=tpuf))
+
+    attrs = tpuf.calls[0][2]
+    assert attrs["events"] == [[]]
+    assert attrs["events_v2"] == [["care_transition", "medication_stopped"]]
+    assert attrs["event_groups_v2"] == [["care_transition", "treatment_change"]]
+    assert attrs["has_treatment_change_v2"] == [True]
+    assert attrs["has_care_transition_v2"] == [True]
