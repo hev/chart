@@ -1,0 +1,101 @@
+{
+  "dual_labeled": 120,
+  "per_family": {
+    "adverse_drug_reaction": {
+      "cohen_kappa": 1.0,
+      "n": 120,
+      "primary_positive": 6,
+      "secondary_positive": 6
+    },
+    "care_transition": {
+      "cohen_kappa": 1.0,
+      "n": 120,
+      "primary_positive": 66,
+      "secondary_positive": 66
+    },
+    "diagnosis_established": {
+      "cohen_kappa": 1.0,
+      "n": 120,
+      "primary_positive": 76,
+      "secondary_positive": 76
+    },
+    "diagnosis_revised_or_ruled_out": {
+      "cohen_kappa": 1.0,
+      "n": 120,
+      "primary_positive": 7,
+      "secondary_positive": 7
+    },
+    "diagnostic_workup": {
+      "cohen_kappa": 1.0,
+      "n": 120,
+      "primary_positive": 86,
+      "secondary_positive": 86
+    },
+    "incidental_finding": {
+      "cohen_kappa": 1.0,
+      "n": 120,
+      "primary_positive": 20,
+      "secondary_positive": 20
+    },
+    "medication_dose_changed": {
+      "cohen_kappa": 1.0,
+      "n": 120,
+      "primary_positive": 13,
+      "secondary_positive": 13
+    },
+    "medication_started": {
+      "cohen_kappa": 1.0,
+      "n": 120,
+      "primary_positive": 43,
+      "secondary_positive": 43
+    },
+    "medication_stopped": {
+      "cohen_kappa": 1.0,
+      "n": 120,
+      "primary_positive": 6,
+      "secondary_positive": 6
+    },
+    "non_drug_complication": {
+      "cohen_kappa": 1.0,
+      "n": 120,
+      "primary_positive": 26,
+      "secondary_positive": 26
+    },
+    "presentation_or_symptom_change": {
+      "cohen_kappa": 1.0,
+      "n": 120,
+      "primary_positive": 68,
+      "secondary_positive": 68
+    },
+    "procedure_complication": {
+      "cohen_kappa": 1.0,
+      "n": 120,
+      "primary_positive": 30,
+      "secondary_positive": 30
+    },
+    "procedure_or_intervention": {
+      "cohen_kappa": 1.0,
+      "n": 120,
+      "primary_positive": 60,
+      "secondary_positive": 60
+    },
+    "severe_outcome_or_death": {
+      "cohen_kappa": 1.0,
+      "n": 120,
+      "primary_positive": 23,
+      "secondary_positive": 23
+    },
+    "treatment_failure_or_recurrence": {
+      "cohen_kappa": 1.0,
+      "n": 120,
+      "primary_positive": 25,
+      "secondary_positive": 25
+    },
+    "treatment_response": {
+      "cohen_kappa": 1.0,
+      "n": 120,
+      "primary_positive": 46,
+      "secondary_positive": 46
+    }
+  }
+}

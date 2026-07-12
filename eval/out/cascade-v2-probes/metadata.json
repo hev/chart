@@ -1,0 +1,6 @@
+{
+  "qrels": 1154,
+  "queries": 10,
+  "shape": "BEIR/TREC qrels-style event-filter probes",
+  "source": "cascade-v2 gold labels; no note text included"
+}
