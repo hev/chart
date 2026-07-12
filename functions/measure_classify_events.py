@@ -13,7 +13,7 @@ from chart_common.config import FULL_CORPUS_NOTES, Settings
 from chart_common.runtime import runtime_error, runtime_report
 from indexer.dataset import load_notes
 
-from .classify_events import WRITEBACK_FIELDS, derive_labels, digest, discontinuation_reason
+from .classify_events import LEGACY_WRITEBACK_FIELDS, derive_labels, digest, discontinuation_reason
 
 DISCONTINUATION_TERMS = (
     "discontinued",
@@ -103,7 +103,7 @@ def writeback_report() -> dict:
         "mode": "tpuf.patch_columns",
         "primary_output": "events",
         "model_passes_per_note": 1,
-        "patched_fields": WRITEBACK_FIELDS,
+        "patched_fields": LEGACY_WRITEBACK_FIELDS,
         "settles_multi_write": True,
     }
 

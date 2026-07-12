@@ -9,6 +9,8 @@ from typing import Any
 from chart_common.config import FULL_CORPUS_NOTES
 from chart_common.gateway import FACET_FIELDS
 
+FULL_GATE_FACET_FIELDS = ["specialty", "age_band", "diagnosis_category", "gender", "events"]
+
 from .full_status import collect_status
 
 
@@ -81,7 +83,7 @@ def _facet_has_snapshot(section: dict[str, Any]) -> bool:
 
 
 def _full_facet_shas(facets: dict[str, Any]) -> set[str]:
-    return {str((facets.get(field) or {}).get("sha")) for field in FACET_FIELDS if (facets.get(field) or {}).get("sha")}
+    return {str((facets.get(field) or {}).get("sha")) for field in FULL_GATE_FACET_FIELDS if (facets.get(field) or {}).get("sha")}
 
 
 def _facet_snapshots_aligned(facets: dict[str, Any]) -> bool:
@@ -212,7 +214,7 @@ def gate_failures(status: dict[str, Any], gates: dict[str, bool]) -> list[dict[s
     if not gates["full_facets_complete"]:
         incomplete = []
         aligned = _facet_snapshots_aligned(facets)
-        for field in FACET_FIELDS:
+        for field in FULL_GATE_FACET_FIELDS:
             section = facets.get(field) or {}
             reasons = _facet_failure_reasons(section, target=target)
             if not aligned and _facet_has_snapshot(section):
@@ -273,7 +275,7 @@ def summarize_gates(status: dict[str, Any]) -> dict[str, Any]:
         _facet_row_count(facets.get(field) or {}) >= target
         and _facet_values(facets.get(field) or {}) > 0
         and _facet_has_snapshot(facets.get(field) or {})
-        for field in FACET_FIELDS
+        for field in FULL_GATE_FACET_FIELDS
     ) and _facet_snapshots_aligned(facets)
     gates["phase6_complete"] = all(
         gates[name]

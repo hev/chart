@@ -66,6 +66,14 @@ SCHEMA: dict[str, Any] = {
     "has_med_discontinuation": {"type": "bool"},
     "has_adverse_event": {"type": "bool"},
     "discontinuation_reason": {"type": "string"},
+    "events_v2": {"type": "[]string"},
+    "event_groups_v2": {"type": "[]string"},
+    "event_confidence_v2": {"type": "object", "filterable": False},
+    "event_spans_v2": {"type": "object", "filterable": False},
+    "has_treatment_change_v2": {"type": "bool"},
+    "has_treatment_response_v2": {"type": "bool"},
+    "has_complication_v2": {"type": "bool"},
+    "has_care_transition_v2": {"type": "bool"},
     # Native PMC-Patients labels — power "find similar patients" and the
     # patient→article second act; also the ReCDS qrels for eval/.
     "similar_patient_ids": {"type": "[]string", "filterable": False},
