@@ -1,0 +1,209 @@
+{
+  "baseline": "v1_current_taxonomy_projection",
+  "grouped_family_metrics": {
+    "care": {
+      "f1": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+    },
+    "complication": {
+      "f1": 0.3333333333333333,
+      "precision": 0.3333333333333333,
+      "recall": 0.3333333333333333
+    },
+    "diagnosis": {
+      "f1": 0.3333333333333333,
+      "precision": 0.3333333333333333,
+      "recall": 0.3333333333333333
+    },
+    "incidental": {
+      "f1": 0.0,
+      "precision": 0.0,
+      "recall": 0.0
+    },
+    "presentation": {
+      "f1": 0.0,
+      "precision": 0.0,
+      "recall": 0.0
+    },
+    "procedure": {
+      "f1": 0.5,
+      "precision": 0.5,
+      "recall": 0.5
+    },
+    "response": {
+      "f1": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+    },
+    "severity": {
+      "f1": 1.0,
+      "precision": 1.0,
+      "recall": 1.0
+    },
+    "treatment_change": {
+      "f1": 0.7999999999999999,
+      "precision": 0.75,
+      "recall": 1.0
+    }
+  },
+  "macro": {
+    "f1": 0.5875,
+    "precision": 0.578125,
+    "recall": 0.625
+  },
+  "medication_stopped_false_positive_buckets": {
+    "device_support": 2,
+    "negation": 13,
+    "other": 53,
+    "procedure_language": 17,
+    "routine_completion": 2,
+    "symptom_cessation": 6
+  },
+  "per_label": {
+    "adverse_drug_reaction": {
+      "f1": 1.0,
+      "fn": 0,
+      "fp": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "tn": 475,
+      "tp": 25
+    },
+    "care_transition": {
+      "f1": 1.0,
+      "fn": 0,
+      "fp": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "tn": 248,
+      "tp": 252
+    },
+    "diagnosis_established": {
+      "f1": 1.0,
+      "fn": 0,
+      "fp": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "tn": 216,
+      "tp": 284
+    },
+    "diagnosis_revised_or_ruled_out": {
+      "f1": 0.0,
+      "fn": 45,
+      "fp": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "tn": 455,
+      "tp": 0
+    },
+    "diagnostic_workup": {
+      "f1": 0.0,
+      "fn": 350,
+      "fp": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "tn": 150,
+      "tp": 0
+    },
+    "incidental_finding": {
+      "f1": 0.0,
+      "fn": 59,
+      "fp": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "tn": 441,
+      "tp": 0
+    },
+    "medication_dose_changed": {
+      "f1": 1.0,
+      "fn": 0,
+      "fp": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "tn": 472,
+      "tp": 28
+    },
+    "medication_started": {
+      "f1": 1.0,
+      "fn": 0,
+      "fp": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "tn": 317,
+      "tp": 183
+    },
+    "medication_stopped": {
+      "f1": 0.4,
+      "fn": 0,
+      "fp": 93,
+      "precision": 0.25,
+      "recall": 1.0,
+      "tn": 376,
+      "tp": 31
+    },
+    "non_drug_complication": {
+      "f1": 0.0,
+      "fn": 90,
+      "fp": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "tn": 410,
+      "tp": 0
+    },
+    "presentation_or_symptom_change": {
+      "f1": 0.0,
+      "fn": 285,
+      "fp": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "tn": 215,
+      "tp": 0
+    },
+    "procedure_complication": {
+      "f1": 0.0,
+      "fn": 116,
+      "fp": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "tn": 384,
+      "tp": 0
+    },
+    "procedure_or_intervention": {
+      "f1": 1.0,
+      "fn": 0,
+      "fp": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "tn": 219,
+      "tp": 281
+    },
+    "severe_outcome_or_death": {
+      "f1": 1.0,
+      "fn": 0,
+      "fp": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "tn": 420,
+      "tp": 80
+    },
+    "treatment_failure_or_recurrence": {
+      "f1": 1.0,
+      "fn": 0,
+      "fp": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "tn": 377,
+      "tp": 123
+    },
+    "treatment_response": {
+      "f1": 1.0,
+      "fn": 0,
+      "fp": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "tn": 323,
+      "tp": 177
+    }
+  }
+}

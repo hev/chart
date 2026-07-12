@@ -121,3 +121,65 @@ that provenance before accepting Phase 5. `scripts/eval_live.sh` also writes the
 holdout report to `CHART_EVAL_HOLDOUT_REPORT`, the aggregate ReCDS report to
 `CHART_EVAL_RECDS_REPORT`, and, when `eval/out/bimodal` exists, the routing-set report to
 `CHART_EVAL_BIMODAL_REPORT`.
+
+## Cascade v2 event-label eval
+
+`eval.cascade_v2` is the held-out event extraction backbone for cascade v2. It
+uses the same pinned PMC-Patients revision as `indexer.dataset` and commits only
+note-ID-keyed JSON: no note text, no dataset rows.
+
+Gold-set construction:
+
+```bash
+uv run --extra eval python -m eval.cascade_v2 build-gold
+```
+
+This builds 500 notes: 300 random (`20260712`), 100 stop/adverse enriched
+(`20260713`), and 100 procedure/complication plus response/failure enriched
+(`20260714`). The prior plan sample is guarded by recomputing its
+`random.Random(20260711)` row indexes on the pinned revision and excluding those
+IDs. Dual labeling uses 120 IDs sampled with `20260715`; agreement is written to
+`eval/out/cascade-v2-agreement.json` with Cohen's kappa per event family.
+
+Score any labels file with the same shape:
+
+```bash
+uv run --extra eval python -m eval.cascade_v2 score \
+  --gold eval/gold/cascade-v2-gold.json \
+  --pred path/to/labels.json \
+  --out eval/out/cascade-v2-report.json
+```
+
+The report includes per-label precision/recall/F1, macro averages, grouped
+family metrics, and medication-stopped false-positive buckets for negation,
+symptom cessation, procedure language, device/support, routine completion, and
+other.
+
+The committed v1 baseline is reproducible with:
+
+```bash
+uv run --extra eval python -m eval.cascade_v2 baseline-v1 \
+  --gold eval/gold/cascade-v2-gold.json \
+  --selection eval/gold/cascade-v2-selection.json \
+  --pred-out eval/out/cascade-v2-v1-labels.json \
+  --report-out eval/out/cascade-v2-v1-baseline.json
+```
+
+Search-usefulness probes are qrels-style and separate from ReCDS:
+
+```bash
+uv run --extra eval python -m eval.cascade_v2_probes build \
+  --gold eval/gold/cascade-v2-gold.json \
+  --out-dir eval/out/cascade-v2-probes
+```
+
+After v2 facets exist in the deployed namespace, replay filtered versus
+unfiltered top-k through the gateway read path:
+
+```bash
+uv run --extra eval python -m eval.cascade_v2_probes run \
+  --probe-dir eval/out/cascade-v2-probes \
+  --facet-field events_v2 \
+  --top-k 50 \
+  --out eval/out/cascade-v2-query-probes-report.json
+```

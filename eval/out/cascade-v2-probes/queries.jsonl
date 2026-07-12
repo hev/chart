@@ -1,0 +1,10 @@
+{"_id": "q01", "facet": "medication_stopped", "kind": "cascade_v2_probe", "text": "immune checkpoint pneumonitis treatment stopped"}
+{"_id": "q02", "facet": "procedure_complication", "kind": "cascade_v2_probe", "text": "procedure complication bleeding"}
+{"_id": "q03", "facet": "incidental_finding", "kind": "cascade_v2_probe", "text": "incidental adrenal mass"}
+{"_id": "q04", "facet": "adverse_drug_reaction", "kind": "cascade_v2_probe", "text": "drug induced rash adverse reaction"}
+{"_id": "q05", "facet": "treatment_failure_or_recurrence", "kind": "cascade_v2_probe", "text": "relapsed cancer treatment failure"}
+{"_id": "q06", "facet": "diagnostic_workup", "kind": "cascade_v2_probe", "text": "biopsy confirmed diagnosis"}
+{"_id": "q07", "facet": "medication_dose_changed", "kind": "cascade_v2_probe", "text": "dose tapered after improvement"}
+{"_id": "q08", "facet": "care_transition", "kind": "cascade_v2_probe", "text": "hospital admission discharge follow up"}
+{"_id": "q09", "facet": "non_drug_complication", "kind": "cascade_v2_probe", "text": "postoperative respiratory failure complication"}
+{"_id": "q10", "facet": "severe_outcome_or_death", "kind": "cascade_v2_probe", "text": "palliative care patient died"}

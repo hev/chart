@@ -1,0 +1,2590 @@
+{
+  "metadata": {
+    "dataset_repo": "zhengyun21/PMC-Patients",
+    "dataset_revision": "28d8836518f86d4f1e6358ea8ec09977023e5766",
+    "dataset_split": "train",
+    "dual_labeled_count": 120,
+    "enrichment_terms": {
+      "procedure_response": [
+        "biopsy",
+        "bleeding",
+        "catheter",
+        "complication",
+        "failed",
+        "failure",
+        "hemorrhage",
+        "improved",
+        "improvement",
+        "operation",
+        "postoperative",
+        "procedure",
+        "recurrence",
+        "relapse",
+        "relapsed",
+        "resolved",
+        "response",
+        "surgery",
+        "treatment failure",
+        "underwent"
+      ],
+      "stop_adverse": [
+        "adverse",
+        "allergy",
+        "allergic",
+        "anaphylaxis",
+        "angioedema",
+        "cessation",
+        "discontinued",
+        "drug-induced",
+        "held",
+        "hypersensitivity",
+        "interrupted",
+        "rash",
+        "reaction",
+        "side effect",
+        "stopped",
+        "suspended",
+        "toxicity",
+        "withdrawal",
+        "withdrawn"
+      ]
+    },
+    "families": [
+      "presentation_or_symptom_change",
+      "diagnostic_workup",
+      "diagnosis_established",
+      "diagnosis_revised_or_ruled_out",
+      "procedure_or_intervention",
+      "procedure_complication",
+      "medication_started",
+      "medication_dose_changed",
+      "medication_stopped",
+      "treatment_response",
+      "treatment_failure_or_recurrence",
+      "adverse_drug_reaction",
+      "non_drug_complication",
+      "care_transition",
+      "incidental_finding",
+      "severe_outcome_or_death"
+    ],
+    "plan_overlap_guard": {
+      "excluded_ids": 400,
+      "method": "recomputed plan sample row indexes from seed 20260711 on the same pinned revision",
+      "selected_overlap": 0
+    },
+    "polarities": [
+      "affirmed",
+      "negated",
+      "historical_or_routine"
+    ],
+    "seeds": {
+      "dual_label": 20260715,
+      "plan_sample_guard": 20260711,
+      "procedure_response_enriched": 20260714,
+      "random": 20260712,
+      "stop_adverse_enriched": 20260713
+    }
+  },
+  "notes": [
+    {
+      "dual_labeled": false,
+      "id": "10771741-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3442473-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "11056217-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10921770-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6369501-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4563056-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7380769-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "11095242-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5899873-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10775933-3",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "6159154-2",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6319511-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10924790-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "4872587-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10683568-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9047818-2",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8741194-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "3716243-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7314365-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8980193-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3651400-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10757069-2",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10310574-4",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6933977-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7264984-2",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10754586-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "9830304-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "3653244-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "7021517-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "5604601-2",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5941166-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9595055-3",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7878086-5",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10731131-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4737441-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5190044-2",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "7528874-7",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9947379-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3819729-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6102438-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9968801-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "4078620-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "8919897-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3438429-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3467879-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10078966-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "4352421-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9119368-3",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "9843878-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "11154135-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "6842215-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8724679-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4739223-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7540405-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7657270-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3214514-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10536724-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3276914-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "8971341-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4832895-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "4301543-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "8877174-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "11063963-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4495091-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6498964-2",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "5988205-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8276965-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "8774215-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10431297-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8946867-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10792348-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7645293-4",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10174454-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6561054-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9886676-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "5733440-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4769759-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "10704719-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "5394299-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6178136-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "4470338-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4498509-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9235132-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "2837668-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6873069-2",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "10170463-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3544608-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8463391-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5682798-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "6695507-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8977345-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10384966-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5712115-4",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "9391515-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10317141-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10898697-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "3943067-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7581089-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6604386-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10590482-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7349616-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4290039-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8577819-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "10660440-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5848667-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5468772-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "4102688-3",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5914151-2",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10159296-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "4753334-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "3065627-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "3284276-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8913153-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5982500-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7991278-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4103487-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6991700-2",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10083639-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4252673-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "8140542-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8279907-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9048551-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8137291-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "10927425-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3357589-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "10722187-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5329764-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3337748-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "8026321-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8511377-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7287864-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4150646-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10347712-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6744537-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4912986-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3978939-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3326831-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "11005499-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10189911-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6549202-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10047054-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "1906806-3",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6701391-3",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6944248-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "3130469-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3423055-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7592250-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5039122-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "9246448-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "11153972-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10512490-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6759446-4",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9277804-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4405893-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5748105-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5301123-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10810130-4",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10671588-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9482550-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7989771-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5922339-2",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10236843-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3401810-2",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10448268-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "10448917-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "11009133-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7375720-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7724121-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "10445504-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7336206-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8601266-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5990233-2",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8310635-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "6935983-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "4247940-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "2797752-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "11033079-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "9425087-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9648322-2",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4297809-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10315450-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10344517-3",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5857578-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4293587-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8259519-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "7594227-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9754875-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "9701777-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6552338-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5333660-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10619715-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "7492794-4",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9429316-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7651773-3",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7864365-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5108490-2",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3516014-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8920694-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9801097-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9795104-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3277481-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7948317-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10074752-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8286022-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6319690-3",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5217415-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5769936-2",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9634400-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3327075-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "2846351-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "11032730-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "10921315-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9564695-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "9726342-2",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6761080-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "8333705-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10898687-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10617153-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6078729-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "4770661-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9356725-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10518427-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9803431-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4667149-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6159070-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10430296-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5624246-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8436600-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "8699977-3",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "4774305-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9030349-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "3277469-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4806455-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4094958-6",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "9204465-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8438790-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "6188763-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7525599-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10566263-2",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "5903097-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10698455-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6851230-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "11032054-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3978103-2",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "3132392-4",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10277751-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7812902-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5030424-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6430306-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6761247-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10624935-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5463112-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7306663-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4705799-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5803694-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "10655665-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10910134-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3863574-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "7297551-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5799617-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "10628514-4",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9983408-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8432127-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5700780-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6728121-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "8042699-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "2844744-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7598844-5",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "10014592-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "3062759-3",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "6368135-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4862085-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "3130635-2",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "9249373-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7045989-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8038649-2",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5816554-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "2823759-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9623255-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "8935836-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "1914049-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3653163-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "2967696-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "2840830-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4885613-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4660544-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8895947-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "11111231-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7670348-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9237146-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "10309396-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10337585-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8710849-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6029048-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9277467-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": true,
+      "id": "10555489-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10022526-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10761477-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5124724-2",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10664668-1",
+      "stratum": "random"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4857267-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "10937334-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "10564681-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7184855-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4530916-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10194834-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "5789617-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "8541662-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10544227-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7404354-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6343172-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "2737768-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10220706-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "4190473-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6236582-3",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8039198-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "3660205-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7713815-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5688253-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5580559-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4709648-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "3796706-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5752771-3",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4691601-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8086336-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5043187-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "11177737-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "5848664-2",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8787578-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5421488-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "6590859-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "4329203-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9641955-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6535884-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5654331-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "2846568-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "6417330-2",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10627018-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8307809-5",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5099479-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7819231-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8942344-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3811713-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "11095609-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "10015996-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10780128-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4878005-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8414444-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9486728-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7301769-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8490063-3",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5234201-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10466364-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "8056374-2",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6034342-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "7788052-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10251676-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5690796-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "7810063-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10511612-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "3502587-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6056409-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9450107-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8638779-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10337988-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "3030016-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "6173005-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8948869-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8350026-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "4768655-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7140141-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3677014-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "8533663-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "9441579-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4301068-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10395253-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10563350-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "5516457-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8381448-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8255740-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5788953-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "10163960-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9903410-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10580464-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "9198860-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9900299-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10282502-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "2615326-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3707287-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6180831-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9743098-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "11023685-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7526971-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "2615295-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6073377-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8931813-2",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4692301-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3842730-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "9270087-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7496467-1",
+      "stratum": "stop_adverse_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10772238-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8679632-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5308138-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10901427-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4124195-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8922183-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8424761-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "7046064-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9126715-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "11001118-2",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5695203-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6296042-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8413199-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "2657622-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10986769-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "10982059-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4220613-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6151028-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8088308-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10105493-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9478727-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4814685-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7416828-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6726819-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8862344-4",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4214396-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "5031828-2",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10319965-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "8159766-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6324149-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8599102-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10020206-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "10617753-4",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8386154-3",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8501469-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "7372796-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "7337445-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "4192414-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10823947-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5820878-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10753037-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "7584821-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4782402-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10089018-2",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10319079-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3745295-3",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10755666-2",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5206107-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "6176301-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10659664-2",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8783253-2",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8973678-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4114603-2",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "11011121-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "8893281-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8706534-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "2955573-3",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7497822-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5977737-2",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "4900008-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4155301-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9983416-2",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "10824215-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "8410508-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10198340-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4912656-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3504285-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8654778-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "9615570-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5534968-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6325339-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9533581-4",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3242996-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8977469-3",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "5011207-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "8606177-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "7443410-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6230671-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9960848-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5005523-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4244746-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6042488-10",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3806707-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10959053-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9175940-2",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "3329080-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3874959-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "4402163-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3276806-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5412741-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "3055834-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": true,
+      "id": "8318975-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "5645907-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "9477995-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6988481-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "11091940-3",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "10768045-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "6624935-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8716595-1",
+      "stratum": "procedure_response_enriched"
+    },
+    {
+      "dual_labeled": false,
+      "id": "8703513-1",
+      "stratum": "procedure_response_enriched"
+    }
+  ]
+}
