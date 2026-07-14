@@ -208,6 +208,31 @@ def _li_embedder():
     return app.state.li_embedder
 
 
+async def _hydrate_li_rows(rows: list[dict], *, namespace: str) -> list[dict]:
+    """Turbopuffer's late-interaction beta returns most ranked rows as bare
+    $dist+id, dropping the requested attributes (observed 9/10 bare on direct
+    upstream queries; single-vector ranked queries are unaffected — beta bug,
+    reported upstream). Hydrate the display attributes with a follow-up filter
+    query and merge by id, keeping the MaxSim order."""
+    missing = [r.get("id") for r in rows if r.get("id") and not r.get("text")]
+    if not missing:
+        return rows
+    resp = await app.state.layer.query_namespace(
+        namespace,
+        QueryRequest(
+            rank_by=["id", "asc"],
+            filters=["id", "In", missing],
+            top_k=len(missing),
+            include_attributes=LI_INCLUDE,
+        ),
+    )
+    by_id = {row.get("id"): row for row in _rows(resp.rows) if row.get("id")}
+    return [
+        {**by_id[r["id"]], **r} if r.get("id") in by_id else r
+        for r in rows
+    ]
+
+
 def li_body(query: str, *, top_k: int = 20) -> QueryRequest:
     """Late-interaction search (Turbopuffer private beta): rank the token-bag
     column by MaxSim — rank_by ["tokens","ANN",[<query token vectors>]]. A
@@ -317,6 +342,9 @@ async def search(
         body = li_body(query, top_k=top_k)
         body.filters = build_filters(grouped)
         result = await _run_query(body, namespace=app.state.settings.li_namespace)
+        result["rows"] = await _hydrate_li_rows(
+            result["rows"], namespace=app.state.settings.li_namespace
+        )
         result["routing"] = {
             "route": "late_interaction",
             "policy": "forced",
