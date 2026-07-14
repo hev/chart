@@ -1,0 +1,71 @@
+name: Deploy chart Worker
+
+# The prod backend is a Cloudflare Worker (src/worker.js + web/static/ via the
+# Static Assets binding in wrangler.jsonc). This ships it on merge to main:
+# validate (dry-run) on every PR, deploy on push to main. Worker secrets
+# (LAYER_GATEWAY_API_KEY, CHART_QUERY_EMBED_URL/KEY) are set once with
+# `wrangler secret put` and persist across deploys — this workflow only needs
+# the Cloudflare deploy credentials.
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'web/static/**'
+      - 'wrangler.jsonc'
+      - '.github/workflows/deploy-worker.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'web/static/**'
+      - 'wrangler.jsonc'
+      - '.github/workflows/deploy-worker.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: chart-worker-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  WRANGLER_VERSION: '4.104.0'
+
+jobs:
+  validate:
+    name: Validate Worker (dry run)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build Worker (dry run)
+        run: npx wrangler@${WRANGLER_VERSION} deploy --dry-run --outdir /tmp/chart-worker-dry-run
+
+  deploy:
+    name: Deploy Worker
+    needs: validate
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate Cloudflare deploy secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::CLOUDFLARE_API_TOKEN is required"; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "::error::CLOUDFLARE_ACCOUNT_ID is required"; exit 1; }
+      - name: Deploy Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler@${WRANGLER_VERSION} deploy
