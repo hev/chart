@@ -29,6 +29,12 @@ FULL_CORPUS_NOTES = 167_000
 # the LI model's first output and asserted against this.
 LI_EMBED_DIM = 96
 
+# Turbopuffer's late-interaction beta rejects query bags over 8 vectors ("Too
+# many clauses in rank_by (32), max is 8. Contact us to raise the limit."), so
+# ColBERT's standard 32-token query encoding must be pooled down before ranking.
+# Document-side bags (hundreds of vectors) are NOT capped — this is query-only.
+LI_QUERY_MAX_CLAUSES = 8
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(

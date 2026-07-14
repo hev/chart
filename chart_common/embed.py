@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from .config import ARCTIC_QUERY_PREFIX
+import math
+
+from .config import ARCTIC_QUERY_PREFIX, LI_QUERY_MAX_CLAUSES
 
 
 class Embedder:
@@ -72,4 +74,26 @@ class LateInteractionEmbedder:
         return [bag.tolist() for bag in self.model.embed(texts)]
 
     def embed_query(self, text: str) -> list[list[float]]:
-        return next(iter(self.model.query_embed([text]))).tolist()
+        bag = next(iter(self.model.query_embed([text]))).tolist()
+        return pool_query_bag(bag, LI_QUERY_MAX_CLAUSES)
+
+
+def pool_query_bag(bag: list[list[float]], max_clauses: int) -> list[list[float]]:
+    """Sequentially mean-pool a query token bag down to `max_clauses` vectors.
+
+    Turbopuffer's late-interaction beta caps query bags at 8 rank_by clauses
+    (config.LI_QUERY_MAX_CLAUSES), a quarter of ColBERT's standard 32-token
+    query encoding. Pooling adjacent tokens (then re-normalizing, so cosine
+    stays cosine) keeps signal from EVERY position rather than truncating to
+    the first 8 — but it is still lossy vs true 32-clause MaxSim; scored runs
+    must carry that caveat."""
+    if len(bag) <= max_clauses:
+        return bag
+    chunk = math.ceil(len(bag) / max_clauses)
+    pooled = []
+    for start in range(0, len(bag), chunk):
+        group = bag[start : start + chunk]
+        mean = [sum(col) / len(group) for col in zip(*group, strict=True)]
+        norm = math.sqrt(sum(x * x for x in mean)) or 1.0
+        pooled.append([x / norm for x in mean])
+    return pooled
