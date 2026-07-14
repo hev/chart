@@ -44,3 +44,32 @@ class Embedder:
     def embed_query(self, text: str) -> list[float]:
         # The asymmetric prefix — the one thing not to get wrong.
         return self._encode([ARCTIC_QUERY_PREFIX + text])[0]
+
+
+class LateInteractionEmbedder:
+    """ColBERT-style token-bag embedder for the late-interaction try-out.
+
+    Emits one vector PER TOKEN (a "bag") instead of one per passage — the
+    [][N]f32 column the Turbopuffer late-interaction beta scores with MaxSim
+    (sum of per-query-token closest distances). fastembed's ONNX catalog carries
+    the supported models; the default (answerai-colbert-small-v1, 96-d) is picked
+    for CPU-viable indexing, not clinical-domain fit.
+
+    Like ColBERT generally, this is asymmetric in a different way from Arctic:
+    documents embed to as many vectors as they have tokens (up to the model's
+    doc window), while queries are padded/truncated to a short fixed budget
+    (32 tokens for the ColBERT family). Long ReCDS patient-note queries are
+    therefore heavily truncated on the query side — an eval caveat, not a bug.
+    """
+
+    def __init__(self, model_name: str) -> None:
+        from fastembed import LateInteractionTextEmbedding
+
+        self.model_name = model_name
+        self.model = LateInteractionTextEmbedding(model_name=model_name)
+
+    def embed_passages(self, texts: list[str]) -> list[list[list[float]]]:
+        return [bag.tolist() for bag in self.model.embed(texts)]
+
+    def embed_query(self, text: str) -> list[list[float]]:
+        return next(iter(self.model.query_embed([text]))).tolist()

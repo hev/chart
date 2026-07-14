@@ -25,7 +25,7 @@
     .chip { border:1px solid var(--line); background:#fff; border-radius:999px; padding:.3rem .7rem; font-size:.85rem; cursor:pointer; }
     .chip:hover { border-color:var(--accent); }
     .badge { display:inline-block; font-weight:600; font-size:.8rem; padding:.15rem .5rem; border-radius:6px; color:#fff; }
-    .badge.hybrid_text { background:var(--kw); } .badge.fused { background:var(--fused); } .badge.semantic { background:var(--sem); } .badge.browse { background:var(--muted); } .badge.agentic { background:#7c3aed; }
+    .badge.hybrid_text { background:var(--kw); } .badge.fused { background:var(--fused); } .badge.semantic { background:var(--sem); } .badge.browse { background:var(--muted); } .badge.agentic { background:#7c3aed; } .badge.late_interaction { background:#0d9488; }
     .agentic-toggle { display:flex; align-items:center; gap:.45rem; margin:.5rem 0 0; font-size:.85rem; color:var(--muted); cursor:pointer; user-select:none; }
     .agentic-toggle input { accent-color:#7c3aed; }
     .agentic-toggle .hint { font-size:.78rem; }
@@ -138,6 +138,9 @@
     <label class="agentic-toggle"><input type="checkbox" id="agentic" />
       Agentic search <span class="hint">— a reasoning loop plans query variants, fans out, and grades
       relevance (a hev layer Agent; slower, better-ranked)</span></label>
+    <label class="agentic-toggle"><input type="checkbox" id="li" />
+      Late-interaction search <span class="hint">— MaxSim over per-token ColBERT vectors
+      (Turbopuffer late-interaction beta; ranks the token-bag twin namespace)</span></label>
     <div class="chips" id="chips"></div>
 
     <!-- The headline: the gateway's own routing decision, rendered. -->
@@ -244,6 +247,18 @@
     let agenticMode = false;
     agenticBox.addEventListener('change', () => {
       agenticMode = agenticBox.checked;
+      if (agenticMode && liMode) { liBox.checked = false; liMode = false; }
+      if (lastQuery.trim()) execute();
+    });
+
+    // Late-interaction mode (Turbopuffer beta): rank the token-bag twin
+    // namespace by MaxSim behind /api/search?li=1. Exclusive with agentic —
+    // both replace the Auto route, in different ways.
+    const liBox = document.getElementById('li');
+    let liMode = false;
+    liBox.addEventListener('change', () => {
+      liMode = liBox.checked;
+      if (liMode && agenticMode) { agenticBox.checked = false; agenticMode = false; }
       if (lastQuery.trim()) execute();
     });
 
@@ -294,13 +309,14 @@
         return;
       }
       const agentic = agenticMode && q;
+      const li = liMode && q && !agentic;
       if (agentic) startThinking(); else results.innerHTML = '<div class="empty">Searching…</div>';
       const parts = [];
       if (q) parts.push('q=' + encodeURIComponent(q));
       parts.push(...params);
       const search = parts.join('&');
       try {
-        const data = await apiJson('/api/search?' + search + '&top_k=' + FETCH_DEPTH + (agentic ? '&agentic=1' : ''), agentic ? AGENT_TIMEOUT_MS : undefined);
+        const data = await apiJson('/api/search?' + search + '&top_k=' + FETCH_DEPTH + (agentic ? '&agentic=1' : '') + (li ? '&li=1' : ''), agentic ? AGENT_TIMEOUT_MS : undefined);
         stopThinking();
         if (agentic) {
           // Facet filters (and the per-search rail scan) don't apply to agentic

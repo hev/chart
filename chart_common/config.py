@@ -23,6 +23,12 @@ EMBED_MAX_TOKENS = 512
 # cost extrapolators use the same row target.
 FULL_CORPUS_NOTES = 167_000
 
+# Late-interaction (ColBERT-style) token-bag dimensionality. answerai-colbert-small
+# emits 96-d per-token vectors; the [][N]f32 schema type and the query bags must
+# agree on N the same way EMBED_DIM pins the Arctic column. Derived at runtime from
+# the LI model's first output and asserted against this.
+LI_EMBED_DIM = 96
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -50,6 +56,15 @@ class Settings(BaseSettings):
     # via POST /v2/agents/{name}/query (docs/api/agents). The inbound key needs
     # the agent.<name> entitlement (deploy/apikey.yaml).
     agent_name: str = Field(default="chart-notes", validation_alias="CHART_AGENT_NAME")
+    # Late-interaction try-out (Turbopuffer private beta): a sibling namespace
+    # holding the same notes with a [][N]f32 token-bag column instead of the
+    # Arctic vector, queried via rank_by ["tokens","ANN",[[...],[...]]]. The
+    # write-amplification experiment and the eval arm both point here.
+    li_namespace: str = Field(default="chart-notes-li", validation_alias="CHART_LI_NAMESPACE")
+    li_model: str = Field(
+        default="answerdotai/answerai-colbert-small-v1",
+        validation_alias="CHART_LI_MODEL",
+    )
     http_timeout_seconds: float = 60.0
 
     # Semantic facet counts: a semantic-routed query has no exact "match set" the
