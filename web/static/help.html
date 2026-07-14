@@ -89,22 +89,56 @@
       matching survives, so a query's <em>stent</em> aligns with the note's <em>stent</em> even when the rest of
       the note points elsewhere. The same 11,373 notes are indexed both ways in twin namespaces; the toggle
       switches which one the query ranks.</p>
-    <p>The trade is footprint, and this demo measures it honestly on identical notes: token bags are
-      <strong>29× the stored bytes</strong> and <strong>16× the billed write bytes</strong> of the single-vector
-      rows, and every query scans the full token store. In evaluation against the ReCDS relevance judgments,
-      late interaction found <strong>4–12× more of the relevant notes at depth</strong> (Recall@1000) than the
-      semantic and lexical routes, while single-vector semantic still ranked better at the very top.</p>
-    <table>
-      <tr><th>Per note (measured)</th><th>Single vector</th><th>Token bags</th></tr>
-      <tr><td>Vectors stored</td><td>1 × 768-d</td><td>~379 × 96-d</td></tr>
-      <tr><td>Write bytes billed</td><td>4.6 KB</td><td>74 KB</td></tr>
-      <tr><td>Stored logical bytes</td><td>5.1 KB</td><td>148 KB</td></tr>
+    <p>The trade is footprint, and this demo measures it honestly on the same notes indexed both ways. The
+      table below is <strong>live</strong> — it reads each namespace's current size from the store, so the
+      amplification is whatever the index actually holds right now, not a figure typed into this page.</p>
+    <table id="storage-table">
+      <tr><th>Storage (live)</th><th>Single vector</th><th>Token bags</th><th>×</th></tr>
+      <tr><td>Notes indexed</td><td id="s-notes-rows">—</td><td id="s-li-rows">—</td><td></td></tr>
+      <tr><td>Stored logical bytes</td><td id="s-notes-bytes">—</td><td id="s-li-bytes">—</td><td id="s-amp">—</td></tr>
+      <tr><td>Per note</td><td id="s-notes-per">—</td><td id="s-li-per">—</td><td></td></tr>
     </table>
+    <p class="doclink" id="storage-note">Fetching current namespace sizes…</p>
+    <p>Write-side cost tracks storage: on the indexing run, token bags billed <strong>~16× the write bytes</strong>
+      of the single-vector rows (74&nbsp;KB vs 4.6&nbsp;KB per note), and every query scans the full token store.
+      In evaluation against the ReCDS relevance judgments, late interaction found <strong>several times more of
+      the relevant notes at depth</strong> (Recall@1000) than the semantic and lexical routes, while
+      single-vector semantic still ranks better at the very top — the recall-vs-precision trade late interaction
+      is known for.</p>
     <p class="doclink">The ranking runs natively in the backing store (Turbopuffer's late-interaction private
       beta) through the gateway as a transparent proxy. Beta edges the demo works around, reported upstream:
-      query bags are capped at 8 vectors (ColBERT's standard 32-token query encoding is pooled down, costing
-      some precision), and ranked hits return without their display attributes (re-fetched in a follow-up
-      query).</p>
+      query bags are capped at 8 vectors (a quarter of ColBERT's 32-token query encoding — the demo keeps the
+      8 most salient, most distinct query terms, which costs some precision), and ranked hits return without
+      their display attributes (re-fetched in a follow-up query).</p>
+    <script>
+      (async () => {
+        const fmtBytes = (n) => n == null ? '—'
+          : n >= 1e9 ? (n/1e9).toFixed(2)+' GB' : n >= 1e6 ? (n/1e6).toFixed(1)+' MB'
+          : n >= 1e3 ? (n/1e3).toFixed(1)+' KB' : n+' B';
+        const fmtNum = (n) => n == null ? '—' : n.toLocaleString();
+        try {
+          const r = await fetch('/api/storage');
+          if (!r.ok) throw new Error('storage ' + r.status);
+          const d = await r.json();
+          const notes = d.notes || {}, li = d.li || {};
+          const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+          set('s-notes-rows', fmtNum(notes.rows));   set('s-li-rows', fmtNum(li.rows));
+          set('s-notes-bytes', fmtBytes(notes.logical_bytes)); set('s-li-bytes', fmtBytes(li.logical_bytes));
+          const perNote = (o) => o.rows && o.logical_bytes ? fmtBytes(o.logical_bytes / o.rows) : '—';
+          set('s-notes-per', perNote(notes)); set('s-li-per', perNote(li));
+          set('s-amp', d.storage_amplification ? d.storage_amplification + '×' : '—');
+          const note = document.getElementById('storage-note');
+          if (note) {
+            note.textContent = li.rows && notes.rows && li.rows < notes.rows
+              ? `Late-interaction index is still filling: ${fmtNum(li.rows)} of ${fmtNum(notes.rows)} notes.`
+              : 'Both namespaces hold the same notes; sizes read live from the store.';
+          }
+        } catch (e) {
+          const note = document.getElementById('storage-note');
+          if (note) note.textContent = 'Live sizes unavailable (backend offline); see the write-cost figures below.';
+        }
+      })();
+    </script>
     <p class="doclink">Docs: <a href="https://hevlayer.com/docs/api/query/" target="_blank" rel="noreferrer">Query API</a></p>
 
     <h2>Clinical-event cascade (UDF with a self-hosted model)</h2>

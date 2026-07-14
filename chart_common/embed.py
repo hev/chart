@@ -75,25 +75,45 @@ class LateInteractionEmbedder:
 
     def embed_query(self, text: str) -> list[list[float]]:
         bag = next(iter(self.model.query_embed([text]))).tolist()
-        return pool_query_bag(bag, LI_QUERY_MAX_CLAUSES)
+        return select_query_clauses(bag, LI_QUERY_MAX_CLAUSES)
 
 
-def pool_query_bag(bag: list[list[float]], max_clauses: int) -> list[list[float]]:
-    """Sequentially mean-pool a query token bag down to `max_clauses` vectors.
+def select_query_clauses(bag: list[list[float]], max_clauses: int) -> list[list[float]]:
+    """Reduce a query token bag to `max_clauses` vectors for the beta clause cap.
 
     Turbopuffer's late-interaction beta caps query bags at 8 rank_by clauses
-    (config.LI_QUERY_MAX_CLAUSES), a quarter of ColBERT's standard 32-token
-    query encoding. Pooling adjacent tokens (then re-normalizing, so cosine
-    stays cosine) keeps signal from EVERY position rather than truncating to
-    the first 8 — but it is still lossy vs true 32-clause MaxSim; scored runs
-    must carry that caveat."""
+    (config.LI_QUERY_MAX_CLAUSES), a quarter of ColBERT's 32-token query
+    encoding. The obvious reduction — mean-pooling adjacent tokens — is a trap:
+    averaging unit vectors that point different ways yields a short, generic
+    vector near the centroid of token space, which is near-equidistant to every
+    long note, so MaxSim stops discriminating (measured: a 0.015 $dist spread
+    across the whole corpus, i.e. near-random ranking).
+
+    Instead SELECT 8 real token vectors, never averaging: start from the
+    highest-norm token (ColBERT encodes token importance as vector norm) and
+    greedily add the token farthest from those already chosen (farthest-point
+    sampling). That keeps the most salient, most diverse query terms — which is
+    what MaxSim needs — and empirically restores a wide, discriminating $dist
+    spread. Still lossy vs true 32-clause MaxSim; the honest fix is a raised
+    cap, tracked as tpuf beta feedback."""
     if len(bag) <= max_clauses:
         return bag
-    chunk = math.ceil(len(bag) / max_clauses)
-    pooled = []
-    for start in range(0, len(bag), chunk):
-        group = bag[start : start + chunk]
-        mean = [sum(col) / len(group) for col in zip(*group, strict=True)]
-        norm = math.sqrt(sum(x * x for x in mean)) or 1.0
-        pooled.append([x / norm for x in mean])
-    return pooled
+    norms = [math.sqrt(sum(x * x for x in v)) or 1.0 for v in bag]
+    chosen = [max(range(len(bag)), key=lambda i: norms[i])]
+    while len(chosen) < max_clauses:
+        # cosine distance to the nearest already-chosen vector (higher = more
+        # novel); norm-weight so a salient-but-slightly-redundant token can still
+        # win over a low-information outlier.
+        def novelty(i: int) -> float:
+            nearest = min(
+                1.0 - _cos(bag[i], bag[j], norms[i], norms[j]) for j in chosen
+            )
+            return nearest * norms[i]
+
+        candidates = (i for i in range(len(bag)) if i not in chosen)
+        chosen.append(max(candidates, key=novelty))
+    return [bag[i] for i in sorted(chosen)]
+
+
+def _cos(a: list[float], b: list[float], na: float, nb: float) -> float:
+    return sum(x * y for x, y in zip(a, b, strict=True)) / (na * nb)

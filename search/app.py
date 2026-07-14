@@ -446,6 +446,41 @@ async def facet_counts(q: str = "", f: list[str] = Query(default=[]), route: str
     return JSONResponse({"fields": fields, "total": total, "approximate": semantic, "query": query})
 
 
+@app.get("/api/storage")
+async def storage() -> JSONResponse:
+    """Live footprint of the twin namespaces, from the store's own metadata —
+    the how-it-works page renders the single-vector vs token-bag trade with
+    current numbers instead of a stale snapshot. Cached briefly; the metadata
+    read is an upstream round-trip per namespace."""
+    now = time.monotonic()
+    cached = getattr(app.state, "storage_cache", None)
+    if cached and now - cached[0] < 60:
+        return JSONResponse(cached[1])
+    settings = app.state.settings
+    base = settings.gateway_url.rstrip("/")
+    out: dict[str, Any] = {}
+    async with httpx.AsyncClient(
+        timeout=15, headers={"Authorization": f"Bearer {settings.api_key}"}
+    ) as client:
+        for key, namespace in (("notes", settings.namespace), ("li", settings.li_namespace)):
+            try:
+                resp = await client.get(f"{base}/v1/namespaces/{namespace}/metadata")
+                body = resp.json() if resp.status_code == 200 else {}
+            except httpx.HTTPError:
+                body = {}
+            out[key] = {
+                "namespace": namespace,
+                "rows": body.get("approx_row_count"),
+                "logical_bytes": body.get("approx_logical_bytes"),
+            }
+    notes_bytes = (out.get("notes") or {}).get("logical_bytes")
+    li_bytes = (out.get("li") or {}).get("logical_bytes")
+    if notes_bytes and li_bytes:
+        out["storage_amplification"] = round(li_bytes / notes_bytes, 1)
+    app.state.storage_cache = (now, out)
+    return JSONResponse(out)
+
+
 @app.get("/api/config")
 async def config() -> JSONResponse:
     return JSONResponse(
