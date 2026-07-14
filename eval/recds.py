@@ -25,6 +25,11 @@ STRATEGIES = {
     "semantic": "semantic",    # forced ANN over the Arctic vector
     "bm25": "hybrid_text",     # forced lexical (+ fuzzy)
     "fused": "fused",          # forced BM25 ⊕ semantic, RRF
+    # Token-bag MaxSim over the LI sibling namespace (Turbopuffer private
+    # beta) — a direct rank_by ["tokens","ANN",[[...]]], not an Auto route.
+    # Caveat: ColBERT-family query encoders truncate to ~32 tokens, so long
+    # ReCDS patient-note queries are heavily truncated on the query side.
+    "late_interaction": "late_interaction",
 }
 
 # ReCDS metrics with published baselines to beat (RFC 0076 § Evaluation).
@@ -154,12 +159,16 @@ def load_beir_dir(path: Path) -> tuple[list[dict], dict[str, dict[str, int]], di
     return [q for q in queries if q["id"] in judged], qrels, metadata
 
 
-async def run_query(layer, namespace, *, text, strategy, embedder, top_k=1000) -> list[str]:
+async def run_query(
+    layer, namespace, *, text, strategy, embedder, li_embedder=None, top_k=1000
+) -> list[str]:
     """Issue one query under `strategy` and return ranked doc ids.
 
     Semantic/fused/Auto get a query vector in the 4th tuple slot, matching the
     demo path and avoiding vectorless deferral."""
-    body = query_body(text, strategy=strategy, embedder=embedder, top_k=top_k)
+    body = query_body(
+        text, strategy=strategy, embedder=embedder, li_embedder=li_embedder, top_k=top_k
+    )
     for attempt in range(3):
         try:
             resp = await layer.query_namespace(namespace, body)
@@ -193,7 +202,17 @@ def _lexical_query_text(text: str, *, strategy: str | None) -> str:
     return " ".join(tokens[:FORCED_LEXICAL_TOKEN_LIMIT])
 
 
-def query_body(text: str, *, strategy: str | None, embedder, top_k: int = 1000) -> QueryRequest:
+def query_body(
+    text: str, *, strategy: str | None, embedder, li_embedder=None, top_k: int = 1000
+) -> QueryRequest:
+    if strategy == "late_interaction":
+        if li_embedder is None:
+            raise ValueError("late_interaction strategy requires an LI embedder")
+        return QueryRequest(
+            rank_by=["tokens", "ANN", li_embedder.embed_query(text)],
+            top_k=max(1, min(top_k, 1000)),
+            include_attributes=["id"],
+        )
     vector = embedder.embed_query(text)
     if len(vector) != EMBED_DIM:
         raise ValueError(f"expected {EMBED_DIM}-d query vector, got {len(vector)}")
@@ -356,6 +375,8 @@ def report_provenance(settings: Settings, *, beir_dir: Path | None = None) -> di
         "embed_model": getattr(settings, "embed_model", None),
         "embed_dim": EMBED_DIM,
         "namespace": getattr(settings, "namespace", None),
+        "li_model": getattr(settings, "li_model", None),
+        "li_namespace": getattr(settings, "li_namespace", None),
     }
 
 
@@ -417,22 +438,33 @@ async def main() -> None:
 
     require_gateway_key(settings)
     embedder = Embedder(settings.embed_model)
+    li_embedder = None
+    if "late_interaction" in args.strategies:
+        from chart_common.embed import LateInteractionEmbedder
+
+        li_embedder = LateInteractionEmbedder(settings.li_model)
     layer = make_client(settings)
     had_failures = False
     summaries = []
     try:
         for name in args.strategies:
             route = STRATEGIES[name]
+            # The LI arm ranks the token-bag sibling namespace; every other arm
+            # ranks chart-notes. Both hold the same note slice, so qrels apply.
+            namespace = (
+                settings.li_namespace if name == "late_interaction" else settings.namespace
+            )
             ranked = {}
             query_errors = []
             for index, q in enumerate(queries, start=1):
                 try:
                     ranked[q["id"]] = await run_query(
                         layer,
-                        settings.namespace,
+                        namespace,
                         text=q["text"],
                         strategy=route,
                         embedder=embedder,
+                        li_embedder=li_embedder,
                         top_k=args.top_k,
                     )
                 except HevlayerError as exc:

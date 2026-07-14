@@ -107,6 +107,10 @@ def parse_filters(raw: list[str] | None) -> Any | None:
 async def lifespan(app: FastAPI):
     app.state.settings = Settings()
     app.state.embedder = Embedder(app.state.settings.embed_model)
+    # The LI token-bag embedder loads lazily on the first ?li=1 query — it is a
+    # try-out mode (Turbopuffer late-interaction beta), not the hot path, and
+    # its ONNX download shouldn't gate readiness.
+    app.state.li_embedder = None
     app.state.layer = make_client(app.state.settings)
     app.state.layer_agent = make_client(app.state.settings, timeout=AGENT_TIMEOUT_SECONDS)
     try:
@@ -152,12 +156,16 @@ def _rows(rows):
     return [_dump(row) for row in rows or []]
 
 
-async def _run_query(body: QueryRequest, *, require_routing: bool = False) -> dict:
+async def _run_query(
+    body: QueryRequest, *, require_routing: bool = False, namespace: str | None = None
+) -> dict:
     last_detail = "unknown error"
     for attempt in range(3):
         start = time.perf_counter()
         try:
-            resp = await app.state.layer.query_namespace(app.state.settings.namespace, body)
+            resp = await app.state.layer.query_namespace(
+                namespace or app.state.settings.namespace, body
+            )
         except HevlayerError as exc:
             if exc.status_code not in TRANSIENT:
                 raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
@@ -179,6 +187,66 @@ async def _run_query(body: QueryRequest, *, require_routing: bool = False) -> di
         if attempt < 2:
             await asyncio.sleep(0.4 * (attempt + 1))
     raise HTTPException(status_code=502, detail=f"gateway error after retries: {last_detail}")
+
+
+# The LI sibling namespace carries only the native note attributes (no UDF
+# writeback columns), so both the include list and the filterable facets are
+# the native subset. Requesting a column the namespace doesn't have is a
+# store error, not a silent null.
+LI_INCLUDE = [
+    "id", "title", "text", "pmid", "source_url",
+    "age", "age_band", "gender", "similar_patient_ids",
+]
+LI_FILTERABLE = {"age_band", "gender"}
+
+
+def _li_embedder():
+    if app.state.li_embedder is None:
+        from chart_common.embed import LateInteractionEmbedder
+
+        app.state.li_embedder = LateInteractionEmbedder(app.state.settings.li_model)
+    return app.state.li_embedder
+
+
+async def _hydrate_li_rows(rows: list[dict], *, namespace: str) -> list[dict]:
+    """Turbopuffer's late-interaction beta returns most ranked rows as bare
+    $dist+id, dropping the requested attributes (observed 9/10 bare on direct
+    upstream queries; single-vector ranked queries are unaffected — beta bug,
+    reported upstream). Hydrate the display attributes with a follow-up filter
+    query and merge by id, keeping the MaxSim order."""
+    missing = [r.get("id") for r in rows if r.get("id") and not r.get("text")]
+    if not missing:
+        return rows
+    resp = await app.state.layer.query_namespace(
+        namespace,
+        QueryRequest(
+            rank_by=["id", "asc"],
+            filters=["id", "In", missing],
+            top_k=len(missing),
+            include_attributes=LI_INCLUDE,
+        ),
+    )
+    by_id = {row.get("id"): row for row in _rows(resp.rows) if row.get("id")}
+    return [
+        {**by_id[r["id"]], **r} if r.get("id") in by_id else r
+        for r in rows
+    ]
+
+
+def li_body(query: str, *, top_k: int = 20) -> tuple[QueryRequest, int]:
+    """Late-interaction search (Turbopuffer private beta): rank the token-bag
+    column by MaxSim — rank_by ["tokens","ANN",[<query token vectors>]]. A
+    direct ANN rank, not an Auto route, so the gateway returns no routing echo;
+    the caller synthesizes one for the badge. Returns the body and the number
+    of query clauses (token vectors) MaxSim scored over, so the UI can render
+    each row's $dist as a per-token match."""
+    bag = _li_embedder().embed_query(query)
+    body = QueryRequest(
+        rank_by=["tokens", "ANN", bag],
+        top_k=max(1, min(top_k, 50)),
+        include_attributes=LI_INCLUDE,
+    )
+    return body, len(bag)
 
 
 def search_body(query: str, *, top_k: int = 20) -> QueryRequest:
@@ -252,7 +320,11 @@ def browse_body(filters: Any, *, top_k: int = 20) -> QueryRequest:
 
 @app.get("/api/search")
 async def search(
-    q: str = "", top_k: int = 20, f: list[str] = Query(default=[]), agentic: int = 0
+    q: str = "",
+    top_k: int = 20,
+    f: list[str] = Query(default=[]),
+    agentic: int = 0,
+    li: int = 0,
 ) -> JSONResponse:
     """Auto-routed search, optionally narrowed by the facet rail. Embed up front
     and hand the vector to Auto in the 4th tuple slot, matching shelf's live
@@ -265,6 +337,28 @@ async def search(
     filters = parse_filters(f)
     if agentic and query:
         result = await _run_agent_query(query, top_k=top_k)
+        result["query"] = query
+        return JSONResponse(result)
+    if li and query:
+        # Only the native facets exist in the LI namespace; drop the rest so a
+        # stale rail selection doesn't turn into a store error.
+        grouped = {k: v for k, v in group_filters(f).items() if k in LI_FILTERABLE}
+        body, clauses = li_body(query, top_k=top_k)
+        body.filters = build_filters(grouped)
+        result = await _run_query(body, namespace=app.state.settings.li_namespace)
+        result["rows"] = await _hydrate_li_rows(
+            result["rows"], namespace=app.state.settings.li_namespace
+        )
+        result["routing"] = {
+            "route": "late_interaction",
+            "policy": "forced",
+            "reason": "MaxSim over ColBERT token bags — Turbopuffer late-interaction beta",
+            # The number of query token-vectors MaxSim summed over. Each row's
+            # $dist is that sum of closest-token distances; the UI divides by it
+            # to show an average per-token match. Query bags are capped at 8
+            # (LI_QUERY_MAX_CLAUSES) — the salient-term selection in the embedder.
+            "clauses": clauses,
+        }
         result["query"] = query
         return JSONResponse(result)
     if not query:
@@ -361,6 +455,41 @@ async def facet_counts(q: str = "", f: list[str] = Query(default=[]), route: str
     return JSONResponse({"fields": fields, "total": total, "approximate": semantic, "query": query})
 
 
+@app.get("/api/storage")
+async def storage() -> JSONResponse:
+    """Live footprint of the twin namespaces, from the store's own metadata —
+    the how-it-works page renders the single-vector vs token-bag trade with
+    current numbers instead of a stale snapshot. Cached briefly; the metadata
+    read is an upstream round-trip per namespace."""
+    now = time.monotonic()
+    cached = getattr(app.state, "storage_cache", None)
+    if cached and now - cached[0] < 60:
+        return JSONResponse(cached[1])
+    settings = app.state.settings
+    base = settings.gateway_url.rstrip("/")
+    out: dict[str, Any] = {}
+    async with httpx.AsyncClient(
+        timeout=15, headers={"Authorization": f"Bearer {settings.api_key}"}
+    ) as client:
+        for key, namespace in (("notes", settings.namespace), ("li", settings.li_namespace)):
+            try:
+                resp = await client.get(f"{base}/v1/namespaces/{namespace}/metadata")
+                body = resp.json() if resp.status_code == 200 else {}
+            except httpx.HTTPError:
+                body = {}
+            out[key] = {
+                "namespace": namespace,
+                "rows": body.get("approx_row_count"),
+                "logical_bytes": body.get("approx_logical_bytes"),
+            }
+    notes_bytes = (out.get("notes") or {}).get("logical_bytes")
+    li_bytes = (out.get("li") or {}).get("logical_bytes")
+    if notes_bytes and li_bytes:
+        out["storage_amplification"] = round(li_bytes / notes_bytes, 1)
+    app.state.storage_cache = (now, out)
+    return JSONResponse(out)
+
+
 @app.get("/api/config")
 async def config() -> JSONResponse:
     return JSONResponse(
@@ -368,6 +497,8 @@ async def config() -> JSONResponse:
             "namespace": app.state.settings.namespace,
             "gateway": app.state.settings.gateway_url.rstrip("/"),
             "field": "text",
+            "li_namespace": app.state.settings.li_namespace,
+            "li_model": app.state.settings.li_model,
         }
     )
 

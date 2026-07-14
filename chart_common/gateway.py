@@ -81,6 +81,51 @@ SCHEMA: dict[str, Any] = {
 }
 
 
+# The late-interaction sibling namespace (Turbopuffer private beta, the
+# rank_by ["tokens","ANN",[[...]]] surface RFC 0089 documents for hev search).
+# Same display/native attributes as SCHEMA, but the ranked column is a token
+# BAG — [][N]f32, one vector per document token, MaxSim-scored — instead of the
+# single Arctic vector. No FTS/facet indexing here: this namespace exists to
+# measure the token-bag write bill and rank the LI eval arm, not to re-run the
+# router. N comes from the LI model (config.LI_EMBED_DIM).
+def li_schema(dim: int) -> dict[str, Any]:
+    return {
+        "text": {"type": "string", "filterable": False},
+        "title": {"type": "string", "filterable": False},
+        "source_url": {"type": "string", "filterable": False},
+        "pmid": {"type": "string", "filterable": False},
+        "age": {"type": "int", "filterable": False},
+        "age_band": {"type": "string"},
+        "gender": {"type": "string"},
+        "similar_patient_ids": {"type": "[]string", "filterable": False},
+        "relevant_article_pmids": {"type": "[]string", "filterable": False},
+        "tokens": {"type": f"[][{dim}]f32", "ann": {"late_interaction": True}},
+    }
+
+
+def billing_bytes_written(resp: Any) -> int:
+    """billable_logical_bytes_written from a write response (model or dict) —
+    the write-amplification instrument. 0 when the backend didn't echo billing."""
+    billing = _read(resp, "billing")
+    value = _read(billing, "billable_logical_bytes_written", 0) if billing else 0
+    return int(value or 0)
+
+
+async def write_li_notes(
+    layer: AsyncHevlayer, namespace: str, rows: list[dict], *, dim: int
+) -> Any:
+    """Upsert note rows carrying `tokens` bags into the LI namespace. Turbopuffer
+    requires distance_metric at the top level of the write (not inside the
+    attribute's ann config); cosine matches the ColBERT family's normalized
+    token vectors."""
+    body = {
+        "upsert_rows": rows,
+        "distance_metric": "cosine_distance",
+        "schema": li_schema(dim),
+    }
+    return await layer.write_namespace(namespace, body)
+
+
 def make_client(settings: Settings, *, timeout: float | None = None) -> AsyncHevlayer:
     """Gateway client with the standard timeout, or an explicit override for
     calls whose server-side budget exceeds it (the Agent reasoning loop)."""
