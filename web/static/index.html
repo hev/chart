@@ -30,6 +30,9 @@
     .agentic-toggle input { accent-color:#7c3aed; }
     .agentic-toggle .hint { font-size:.78rem; }
     .hit .agentmeta { color:#7c3aed; font-size:.76rem; }
+    .hit .limeta { color:#0d9488; font-size:.76rem; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .hit .limeta .lidist { font-weight:600; }
+    .hit .limeta .lisub { color:var(--muted); }
     /* Cascade labels on result cards — clickable, they toggle the rail filter. */
     .etags { display:flex; flex-wrap:wrap; gap:.3rem; margin:.3rem 0 0; }
     .etag { border:1px solid #d8c6f4; background:#f6f0fd; color:#5b21b6; border-radius:999px; padding:.12rem .55rem; font-size:.74rem; cursor:pointer; }
@@ -331,7 +334,7 @@
         }
         agenticInfo = null;
         const routing = data.routing || {};
-        lastEcho = { route: routing.route || routing.strategy || '', hybrid: data.hybrid || null };
+        lastEcho = { route: routing.route || routing.strategy || '', hybrid: data.hybrid || null, clauses: routing.clauses || 0 };
         renderRouting(data, lastNote);
         renderResults(data.rows || []);
         // The Scans API showcase: count the full match set per facet, async, so the
@@ -500,7 +503,8 @@
         badge.textContent = route;
         document.getElementById('signals').textContent = [
           data.took_ms ? `${data.took_ms} ms` : '',
-          routing.reason || routing.policy || ''
+          routing.reason || routing.policy || '',
+          routing.clauses ? `${routing.clauses} query tokens · each row scored by MaxSim` : ''
         ].filter(Boolean).join(' · ');
         document.getElementById('note').textContent = note;
       } else {
@@ -585,11 +589,22 @@
       const agentMeta = ag
         ? `<div class="agentmeta">surfaced by “${escapeHtml(ag.query || '')}” · retrieval #${escapeHtml(String(ag.retrievalScore ?? '?'))} · relevance ${typeof ag.relevanceScore === 'number' ? ag.relevanceScore.toFixed(2) : '?'}</div>`
         : '';
+      // Late-interaction provenance: the MaxSim distance ($dist, the actual
+      // ranking signal — sum of each query token's closest note-token distance,
+      // lower is stronger) plus the per-token average, so the raw score is
+      // legible next to a familiar cosine-like number. Shown only in LI mode.
+      const dist = row['$dist'];
+      const liMeta = (lastEcho && lastEcho.route === 'late_interaction' && typeof dist === 'number')
+        ? `<div class="limeta">MaxSim <span class="lidist">${dist.toFixed(3)}</span>${
+            lastEcho.clauses ? ` <span class="lisub">· ${(1 - dist / lastEcho.clauses).toFixed(3)} avg token match · ${lastEcho.clauses} query tokens</span>` : ''
+          }</div>`
+        : '';
       hit.innerHTML = `
         <h2>${url ? `<a href="${escapeAttr(url)}" target="_blank" rel="noreferrer">${escapeHtml(title)}</a>` : escapeHtml(title)}</h2>
         <div class="meta">${escapeHtml(facets)}</div>
         ${eventTags || reasonTag ? `<div class="etags">${eventTags}${reasonTag}</div>` : ''}
         ${agentMeta}
+        ${liMeta}
         <p class="snippet" title="View the full note">${escapeHtml(text)}${row.text && row.text.length > 320 ? '…' : ''}</p>
       `;
       hit.querySelectorAll('.etag').forEach((b) => { b.onclick = () => toggleFilter(b.dataset.field, b.dataset.value); });

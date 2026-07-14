@@ -233,16 +233,20 @@ async def _hydrate_li_rows(rows: list[dict], *, namespace: str) -> list[dict]:
     ]
 
 
-def li_body(query: str, *, top_k: int = 20) -> QueryRequest:
+def li_body(query: str, *, top_k: int = 20) -> tuple[QueryRequest, int]:
     """Late-interaction search (Turbopuffer private beta): rank the token-bag
     column by MaxSim — rank_by ["tokens","ANN",[<query token vectors>]]. A
     direct ANN rank, not an Auto route, so the gateway returns no routing echo;
-    the caller synthesizes one for the badge."""
-    return QueryRequest(
-        rank_by=["tokens", "ANN", _li_embedder().embed_query(query)],
+    the caller synthesizes one for the badge. Returns the body and the number
+    of query clauses (token vectors) MaxSim scored over, so the UI can render
+    each row's $dist as a per-token match."""
+    bag = _li_embedder().embed_query(query)
+    body = QueryRequest(
+        rank_by=["tokens", "ANN", bag],
         top_k=max(1, min(top_k, 50)),
         include_attributes=LI_INCLUDE,
     )
+    return body, len(bag)
 
 
 def search_body(query: str, *, top_k: int = 20) -> QueryRequest:
@@ -339,7 +343,7 @@ async def search(
         # Only the native facets exist in the LI namespace; drop the rest so a
         # stale rail selection doesn't turn into a store error.
         grouped = {k: v for k, v in group_filters(f).items() if k in LI_FILTERABLE}
-        body = li_body(query, top_k=top_k)
+        body, clauses = li_body(query, top_k=top_k)
         body.filters = build_filters(grouped)
         result = await _run_query(body, namespace=app.state.settings.li_namespace)
         result["rows"] = await _hydrate_li_rows(
@@ -349,6 +353,11 @@ async def search(
             "route": "late_interaction",
             "policy": "forced",
             "reason": "MaxSim over ColBERT token bags — Turbopuffer late-interaction beta",
+            # The number of query token-vectors MaxSim summed over. Each row's
+            # $dist is that sum of closest-token distances; the UI divides by it
+            # to show an average per-token match. Query bags are capped at 8
+            # (LI_QUERY_MAX_CLAUSES) — the salient-term selection in the embedder.
+            "clauses": clauses,
         }
         result["query"] = query
         return JSONResponse(result)
