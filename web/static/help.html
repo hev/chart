@@ -22,7 +22,7 @@
     p.lede { color:var(--muted); margin:.25rem 0 1.2rem; }
     a { color:var(--accent); }
     .badge { display:inline-block; font-weight:600; font-size:.8rem; padding:.15rem .5rem; border-radius:6px; color:#fff; vertical-align:baseline; }
-    .badge.hybrid_text { background:var(--kw); } .badge.fused { background:var(--fused); } .badge.semantic { background:var(--sem); } .badge.agentic { background:#7c3aed; }
+    .badge.hybrid_text { background:var(--kw); } .badge.fused { background:var(--fused); } .badge.semantic { background:var(--sem); } .badge.agentic { background:#7c3aed; } .badge.late_interaction { background:#0d9488; }
     table { border-collapse:collapse; width:100%; font-size:.9rem; margin:.6rem 0; }
     th, td { text-align:left; padding:.35rem .5rem; border-top:1px solid var(--line); vertical-align:top; }
     th { color:var(--muted); font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; border-top:none; }
@@ -80,6 +80,33 @@
     <p class="doclink">Docs: <a href="https://hevlayer.com/docs/api/agents/" target="_blank" rel="noreferrer">Agents API</a>
       · <a href="https://hevlayer.com/docs/kubernetes/agent-crd/" target="_blank" rel="noreferrer">Agent resource</a></p>
 
+    <h2>Late-interaction search (beta try-out)</h2>
+    <p>The <strong>Late-interaction search</strong> toggle ranks with per-token vectors instead of one vector
+      per note. The semantic route compresses a whole case report into a single 768-d embedding; late
+      interaction (ColBERT-style) keeps ~380 small vectors per note — one per token — and scores by
+      <strong>MaxSim</strong>: each query token finds its closest note token, and the row's score
+      <span class="badge late_interaction">late_interaction</span> is the sum of those closenesses. Token-level
+      matching survives, so a query's <em>stent</em> aligns with the note's <em>stent</em> even when the rest of
+      the note points elsewhere. The same 11,373 notes are indexed both ways in twin namespaces; the toggle
+      switches which one the query ranks.</p>
+    <p>The trade is footprint, and this demo measures it honestly on identical notes: token bags are
+      <strong>29× the stored bytes</strong> and <strong>16× the billed write bytes</strong> of the single-vector
+      rows, and every query scans the full token store. In evaluation against the ReCDS relevance judgments,
+      late interaction found <strong>4–12× more of the relevant notes at depth</strong> (Recall@1000) than the
+      semantic and lexical routes, while single-vector semantic still ranked better at the very top.</p>
+    <table>
+      <tr><th>Per note (measured)</th><th>Single vector</th><th>Token bags</th></tr>
+      <tr><td>Vectors stored</td><td>1 × 768-d</td><td>~379 × 96-d</td></tr>
+      <tr><td>Write bytes billed</td><td>4.6 KB</td><td>74 KB</td></tr>
+      <tr><td>Stored logical bytes</td><td>5.1 KB</td><td>148 KB</td></tr>
+    </table>
+    <p class="doclink">The ranking runs natively in the backing store (Turbopuffer's late-interaction private
+      beta) through the gateway as a transparent proxy. Beta edges the demo works around, reported upstream:
+      query bags are capped at 8 vectors (ColBERT's standard 32-token query encoding is pooled down, costing
+      some precision), and ranked hits return without their display attributes (re-fetched in a follow-up
+      query).</p>
+    <p class="doclink">Docs: <a href="https://hevlayer.com/docs/api/query/" target="_blank" rel="noreferrer">Query API</a></p>
+
     <h2>Clinical-event cascade (UDF with a self-hosted model)</h2>
     <p>The <em>Clinical event</em>, <em>Specialty</em>, and <em>Diagnosis</em> facets are not in the source data —
       they are written back by a user-defined function running an open-weight <strong>Gemma</strong> model on
@@ -114,8 +141,8 @@
 
     <footer>
       A <a href="https://hevlayer.com" target="_blank" rel="noreferrer">hev layer</a> demo.
-      Routing, hybrid fusion, agents, snapshots, scans, and the Function runtime are gateway features —
-      the app composes them.
+      Routing, hybrid fusion, agents, late interaction, snapshots, scans, and the Function runtime are
+      gateway features — the app composes them.
     </footer>
   </main>
 </body>
