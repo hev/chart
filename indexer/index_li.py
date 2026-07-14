@@ -31,9 +31,9 @@ from chart_common.embed import Embedder, LateInteractionEmbedder
 from chart_common.gateway import (
     billing_bytes_written,
     close_client,
+    li_schema,
     make_client,
     write_li_notes,
-    write_notes,
 )
 from chart_common.records import NoteRecord
 
@@ -44,6 +44,18 @@ from .index import _batched, attach_vectors
 # floats are ~3x the logical f32 bytes) and progress checkpoints reasonable.
 BATCH = 64
 BASELINE_NAMESPACE_SUFFIX = "-b0"
+
+
+async def write_baseline_notes(layer, namespace: str, rows: list[dict]) -> Any:
+    """Baseline writes carry the NATIVE columns only (the LI schema minus
+    tokens; the vector column infers from the rows). chart-notes' full SCHEMA
+    includes cascade-v2 `object` columns the gateway's write parser currently
+    rejects (AttributeSchemaInput has no object variant) — and the baseline's
+    only job is measuring single-vector row write bytes, not carrying the UDF
+    surface."""
+    schema = {k: v for k, v in li_schema(1).items() if k != "tokens"}
+    body = {"upsert_rows": rows, "distance_metric": "cosine_distance", "schema": schema}
+    return await layer.write_namespace(namespace, body)
 
 
 def li_rows(batch: list[NoteRecord], bags: list[list[list[float]]]) -> list[dict]:
@@ -97,7 +109,7 @@ async def run(
                 totals["tokens"] += sum(len(row["tokens"]) for row in rows)
             if not dry_run:
                 resp = (
-                    await write_notes(layer, namespace, rows)
+                    await write_baseline_notes(layer, namespace, rows)
                     if baseline
                     else await write_li_notes(layer, namespace, rows, dim=LI_EMBED_DIM)
                 )
