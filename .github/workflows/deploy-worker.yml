@@ -33,7 +33,7 @@ env:
 jobs:
   validate:
     name: Validate Worker (dry run)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux]
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
@@ -47,7 +47,7 @@ jobs:
     name: Deploy Worker
     needs: validate
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux]
     timeout-minutes: 10
     permissions:
       contents: read
