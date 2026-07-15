@@ -130,6 +130,8 @@ async def test_python_backend_config_matches_worker_shape(monkeypatch) -> None:
             settings=SimpleNamespace(
                 namespace="chart-notes",
                 gateway_url="https://aws-us-east-1.hevlayer.com/",
+                li_namespace="chart-notes-li",
+                li_model="answerdotai/answerai-colbert-small-v1",
             )
         ),
     )
@@ -140,7 +142,14 @@ async def test_python_backend_config_matches_worker_shape(monkeypatch) -> None:
         "namespace": "chart-notes",
         "gateway": "https://aws-us-east-1.hevlayer.com",
         "field": "text",
+        "li_namespace": "chart-notes-li",
+        "li_model": "answerdotai/answerai-colbert-small-v1",
     }
+
+
+def test_search_payload_omits_unrendered_cascade_v2_maps() -> None:
+    assert "event_confidence_v2" not in search_app.INCLUDE
+    assert "event_spans_v2" not in search_app.INCLUDE
 
 
 def test_demo_chips_match_expected_auto_routes() -> None:

@@ -223,6 +223,8 @@ def test_recds_report_provenance_records_pinned_dataset_and_model() -> None:
         "embed_model": "Snowflake/snowflake-arctic-embed-m-v1.5",
         "embed_dim": EMBED_DIM,
         "namespace": "chart-notes",
+        "li_model": "answerdotai/answerai-colbert-small-v1",
+        "li_namespace": "chart-notes-li",
     }
 
 
@@ -235,6 +237,8 @@ def test_bimodal_report_provenance_does_not_claim_recds_revision(tmp_path) -> No
         "embed_model": "Snowflake/snowflake-arctic-embed-m-v1.5",
         "embed_dim": EMBED_DIM,
         "namespace": "chart-notes",
+        "li_model": "answerdotai/answerai-colbert-small-v1",
+        "li_namespace": "chart-notes-li",
     }
 
 

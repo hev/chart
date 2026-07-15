@@ -16,7 +16,7 @@ def test_static_ui_displays_source_license_and_safety_notice() -> None:
 def test_static_ui_is_wired_to_live_api_routes() -> None:
     source = INDEX.read_text()
 
-    assert "apiJson('/api/search?' + search + '&top_k=' + FETCH_DEPTH + (agentic ? '&agentic=1' : ''), agentic ? AGENT_TIMEOUT_MS : undefined)" in source
+    assert "apiJson('/api/search?' + search + '&top_k=' + FETCH_DEPTH + (agentic ? '&agentic=1' : '') + (li ? '&li=1' : ''), agentic ? AGENT_TIMEOUT_MS : undefined)" in source
     assert "'q=' + encodeURIComponent(q)" in source
     assert "apiJson('/api/similar/'" in source
     assert "apiJson('/api/facets')" in source
@@ -207,7 +207,7 @@ def test_static_ui_note_viewer_highlights_gateway_lexical_tokens_only() -> None:
 
     # The highlight vocabulary is the gateway's hybrid echo — captured per search,
     # cleared for agentic runs (per-variant token sets have no single vocabulary).
-    assert "lastEcho = { route: routing.route || routing.strategy || '', hybrid: data.hybrid || null };" in source
+    assert "lastEcho = { route: routing.route || routing.strategy || '', hybrid: data.hybrid || null, clauses: routing.clauses || 0 };" in source
     assert "lastEcho = null; // per-variant token sets" in source
     assert "lastEcho.hybrid.tokens" in source
     # Literal, whole-token occurrences get <mark>ed; the UI never re-tokenizes.

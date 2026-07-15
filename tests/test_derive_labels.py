@@ -4,6 +4,7 @@ from types import ModuleType
 
 import pytest
 
+from chart_common.cascade_v2 import decode_cascade_v2_map, encode_cascade_v2_map
 from functions import classify_events
 from functions.classify_events import derive_labels
 
@@ -266,6 +267,14 @@ def test_classify_events_udf_patches_derived_labels(monkeypatch) -> None:
                 "diagnosis_category": ["cardiovascular"],
                 "specialty": ["cardiology"],
                 "discontinuation_reason": ["adverse_effect"],
+                "events_v2": [[]],
+                "event_groups_v2": [[]],
+                "event_confidence_v2": ["{}"],
+                "event_spans_v2": ["{}"],
+                "has_treatment_change_v2": [False],
+                "has_treatment_response_v2": [False],
+                "has_complication_v2": [False],
+                "has_care_transition_v2": [False],
             },
         )
     ]
@@ -299,6 +308,14 @@ def test_classify_events_udf_patches_events_without_discontinuation_reason(monke
                 "diagnosis_category": ["allergy"],
                 "specialty": ["immunology"],
                 "discontinuation_reason": [None],
+                "events_v2": [[]],
+                "event_groups_v2": [[]],
+                "event_confidence_v2": ["{}"],
+                "event_spans_v2": ["{}"],
+                "has_treatment_change_v2": [False],
+                "has_treatment_response_v2": [False],
+                "has_complication_v2": [False],
+                "has_care_transition_v2": [False],
             },
         )
     ]
@@ -396,7 +413,7 @@ def test_batch_writeback_columns_aligned() -> None:
         {"events": [{"type": "medication_discontinued", "reason": "cost"}], "diagnosis_category": "cardiology", "specialty": "cardiology"},
         {"events": [], "diagnosis_category": "other", "specialty": "other"},
     ]
-    columns = classify_events._batch_writeback_columns(digests)
+    columns = classify_events.build_bulk_patch_columns(digests)
     assert set(columns) == set(classify_events.WRITEBACK_FIELDS)
     assert all(len(v) == 2 for v in columns.values())
     assert columns["events"][0] == ["medication_discontinued"]
@@ -413,6 +430,30 @@ def _v2_event(event_type: str, **extra):
     }
     event.update(extra)
     return event
+
+
+def test_cascade_v2_map_codec_is_canonical_and_lossless() -> None:
+    confidence = {"procedure_completed": 0.625, "medication_stopped": 0.91}
+    spans = {
+        "procedure_completed": ["completed without complication"],
+        "medication_stopped": ["statin was stopped", "metformin discontinued"],
+    }
+
+    encoded_confidence = encode_cascade_v2_map(confidence)
+    encoded_spans = encode_cascade_v2_map(spans)
+
+    assert encoded_confidence == '{"medication_stopped":0.91,"procedure_completed":0.625}'
+    assert encoded_spans == (
+        '{"medication_stopped":["statin was stopped","metformin discontinued"],'
+        '"procedure_completed":["completed without complication"]}'
+    )
+    assert decode_cascade_v2_map(encoded_confidence) == confidence
+    assert decode_cascade_v2_map(encoded_spans) == spans
+
+
+def test_decode_cascade_v2_map_rejects_non_object_json() -> None:
+    with pytest.raises(ValueError, match="JSON object"):
+        decode_cascade_v2_map('["not","a","map"]')
 
 
 def test_derive_labels_v2_facets_all_balanced_families() -> None:
@@ -562,5 +603,85 @@ def test_classify_events_udf_patches_v2_fields_when_digest_contains_v2(monkeypat
     assert attrs["events"] == [[]]
     assert attrs["events_v2"] == [["care_transition", "medication_stopped"]]
     assert attrs["event_groups_v2"] == [["care_transition", "treatment_change"]]
+    assert attrs["event_confidence_v2"] == [
+        '{"care_transition":0.9,"medication_stopped":0.9}'
+    ]
+    assert attrs["event_spans_v2"] == [
+        '{"care_transition":["patient was admitted"],'
+        '"medication_stopped":["statin was stopped"]}'
+    ]
+    assert decode_cascade_v2_map(attrs["event_confidence_v2"][0]) == {
+        "care_transition": 0.9,
+        "medication_stopped": 0.9,
+    }
+    assert decode_cascade_v2_map(attrs["event_spans_v2"][0]) == {
+        "care_transition": ["patient was admitted"],
+        "medication_stopped": ["statin was stopped"],
+    }
     assert attrs["has_treatment_change_v2"] == [True]
     assert attrs["has_care_transition_v2"] == [True]
+
+
+def test_bulk_patch_columns_encode_cascade_v2_maps_without_nested_values() -> None:
+    digest = {
+        "events": [],
+        "events_v2": [
+            _v2_event(
+                "medication_stopped",
+                drug_or_treatment="statin",
+                span_quote="statin was stopped",
+                confidence=0.82,
+            ),
+            _v2_event("diagnostic_workup", span_quote="CT showed pneumonia", confidence=0.67),
+        ],
+    }
+
+    columns = classify_events.build_bulk_patch_columns([digest])
+
+    assert columns["event_confidence_v2"] == [
+        '{"diagnostic_workup":0.67,"medication_stopped":0.82}'
+    ]
+    assert columns["event_spans_v2"] == [
+        '{"diagnostic_workup":["CT showed pneumonia"],'
+        '"medication_stopped":["statin was stopped"]}'
+    ]
+    assert all(
+        not isinstance(value, dict)
+        for field in ("event_confidence_v2", "event_spans_v2")
+        for value in columns[field]
+    )
+    assert decode_cascade_v2_map(columns["event_confidence_v2"][0]) == {
+        "diagnostic_workup": 0.67,
+        "medication_stopped": 0.82,
+    }
+    assert decode_cascade_v2_map(columns["event_spans_v2"][0]) == {
+        "diagnostic_workup": ["CT showed pneumonia"],
+        "medication_stopped": ["statin was stopped"],
+    }
+
+
+def test_complete_items_encode_cascade_v2_maps_without_nested_values() -> None:
+    digest = {
+        "events": [],
+        "events_v2": [
+            _v2_event(
+                "medication_stopped",
+                drug_or_treatment="statin",
+                span_quote="statin was stopped",
+                confidence=0.82,
+            )
+        ],
+    }
+
+    item = classify_events.complete_items([digest])[0]
+
+    assert item["event_confidence_v2"] == '{"medication_stopped":0.82}'
+    assert item["event_spans_v2"] == '{"medication_stopped":["statin was stopped"]}'
+    assert not isinstance(item["event_confidence_v2"], dict)
+    assert not isinstance(item["event_spans_v2"], dict)
+    assert decode_cascade_v2_map(item["event_confidence_v2"]) == {
+        "medication_stopped": 0.82
+    }
+    assert decode_cascade_v2_map(item["event_spans_v2"]) == {
+        "medication_stopped": ["statin was stopped"]
+    }

@@ -68,8 +68,11 @@ SCHEMA: dict[str, Any] = {
     "discontinuation_reason": {"type": "string"},
     "events_v2": {"type": "[]string"},
     "event_groups_v2": {"type": "[]string"},
-    "event_confidence_v2": {"type": "object", "filterable": False},
-    "event_spans_v2": {"type": "object", "filterable": False},
+    # Turbopuffer has no nested-object attribute type/value. These two maps are
+    # canonical compact JSON strings at the write boundary; current search and
+    # facet paths use events_v2/event_groups_v2 instead of filtering the maps.
+    "event_confidence_v2": {"type": "string", "filterable": False},
+    "event_spans_v2": {"type": "string", "filterable": False},
     "has_treatment_change_v2": {"type": "bool"},
     "has_treatment_response_v2": {"type": "bool"},
     "has_complication_v2": {"type": "bool"},

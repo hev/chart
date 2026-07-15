@@ -29,7 +29,7 @@ if [[ "${CHART_PREFLIGHT_DOCKER:-0}" == "1" ]]; then
 fi
 
 uv run --extra search --extra eval --extra test pytest
-python -m compileall chart_common indexer search functions eval smoke tests
+uv run python -m compileall chart_common indexer search functions eval smoke tests
 node --check src/worker.js
 npx wrangler@4.104.0 deploy --dry-run --outdir /tmp/chart-worker-dry-run
 CHART_DEPLOY_APPLY_REPORT="${TMPDIR:-/tmp}/chart-preflight-deploy-apply-report.json" \
