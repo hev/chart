@@ -495,6 +495,7 @@ def test_plan_audit_ready_wrapper_prints_ready_steps_without_gateway_key(tmp_pat
         cwd=Path(__file__).resolve().parent.parent,
         env={
             "PATH": os.environ["PATH"],
+            "UV_NO_SYNC": "1",
             "CHART_PLAN_AUDIT_REPORT": str(report),
             "CHART_SLICE_INDEX_REPORT": str(tmp_path / "slice-index-report.json"),
             "CHART_LIVE_SMOKE_REPORT": str(tmp_path / "live-smoke-report.json"),

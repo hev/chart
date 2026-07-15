@@ -3,10 +3,12 @@ from __future__ import annotations
 import pytest
 
 from chart_common.gateway import (
+    SCHEMA,
     latest_facets,
     latest_facets_many,
     materialize_facet_snapshots,
     require_gateway_key,
+    write_notes,
 )
 
 
@@ -47,6 +49,41 @@ def test_require_gateway_key_rejects_missing_or_test_double_key() -> None:
         require_gateway_key(type("Settings", (), {"api_key": None})())
 
     require_gateway_key(type("Settings", (), {"api_key": "key"})())
+
+
+@pytest.mark.anyio
+async def test_full_inline_schema_write_uses_supported_cascade_v2_types() -> None:
+    class FakeLayer:
+        def __init__(self) -> None:
+            self.calls = []
+
+        async def write_namespace(self, namespace, body):
+            self.calls.append((namespace, body))
+            return {"rows_affected": 1}
+
+    row = {
+        "id": "patient-1",
+        "text": "statin was stopped",
+        "vector": [0.1, 0.2],
+        "event_confidence_v2": '{"medication_stopped":0.82}',
+        "event_spans_v2": '{"medication_stopped":["statin was stopped"]}',
+    }
+    layer = FakeLayer()
+
+    await write_notes(layer, "chart-schema-test", [row])
+
+    assert SCHEMA["event_confidence_v2"] == {"type": "string", "filterable": False}
+    assert SCHEMA["event_spans_v2"] == {"type": "string", "filterable": False}
+    assert layer.calls == [
+        (
+            "chart-schema-test",
+            {
+                "upsert_rows": [row],
+                "distance_metric": "cosine_distance",
+                "schema": SCHEMA,
+            },
+        )
+    ]
 
 
 @pytest.mark.anyio

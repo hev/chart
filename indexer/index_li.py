@@ -48,11 +48,8 @@ BASELINE_NAMESPACE_SUFFIX = "-b0"
 
 async def write_baseline_notes(layer, namespace: str, rows: list[dict]) -> Any:
     """Baseline writes carry the NATIVE columns only (the LI schema minus
-    tokens; the vector column infers from the rows). chart-notes' full SCHEMA
-    includes cascade-v2 `object` columns the gateway's write parser currently
-    rejects (AttributeSchemaInput has no object variant) — and the baseline's
-    only job is measuring single-vector row write bytes, not carrying the UDF
-    surface."""
+    tokens; the vector column infers from the rows). The baseline's only job is
+    measuring single-vector row write bytes, not carrying the UDF surface."""
     schema = {k: v for k, v in li_schema(1).items() if k != "tokens"}
     body = {"upsert_rows": rows, "distance_metric": "cosine_distance", "schema": schema}
     return await layer.write_namespace(namespace, body)

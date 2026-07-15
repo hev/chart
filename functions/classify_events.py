@@ -38,6 +38,7 @@ import re
 from functools import lru_cache
 from typing import Any
 
+from chart_common.cascade_v2 import encode_cascade_v2_map
 from chart_common.config import Settings
 from hevlayer.udf import run_udf_worker, udf
 
@@ -549,58 +550,47 @@ async def classify_events_udf(
     note = "" if text is None else str(text)
     d = digest(note)
     labels = derive_labels(d)
-    labels_v2 = derive_labels_v2(d)
     if tpuf is not None and id:
-        attrs = {
-            "events": [labels["events"]],
-            "has_med_discontinuation": [labels["has_med_discontinuation"]],
-            "has_adverse_event": [labels["has_adverse_event"]],
-            "diagnosis_category": [labels["diagnosis_category"]],
-            "specialty": [labels["specialty"]],
-            "discontinuation_reason": [
-                discontinuation_reason(d) if labels["has_med_discontinuation"] else None
-            ],
-        }
-        if "events_v2" in d:
-            attrs.update(
-                {
-                    "events_v2": [labels_v2["events_v2"]],
-                    "event_groups_v2": [labels_v2["event_groups_v2"]],
-                    "event_confidence_v2": [labels_v2["event_confidence_v2"]],
-                    "event_spans_v2": [labels_v2["event_spans_v2"]],
-                    "has_treatment_change_v2": [labels_v2["has_treatment_change_v2"]],
-                    "has_treatment_response_v2": [labels_v2["has_treatment_response_v2"]],
-                    "has_complication_v2": [labels_v2["has_complication_v2"]],
-                    "has_care_transition_v2": [labels_v2["has_care_transition_v2"]],
-                }
-            )
+        item = complete_items([d])[0]
+        attrs = {field: [value] for field, value in item.items()}
         await tpuf.patch_columns(Settings().namespace, [str(id)], attrs)
     return labels["events"]
 
 
-def _batch_writeback_columns(digests: list[dict]) -> dict[str, list[Any]]:
-    """Tier-2 labels for a whole claim as aligned column arrays (patch_columns'
-    native shape: one write for N rows instead of N writes)."""
-    columns: dict[str, list[Any]] = {field: [] for field in WRITEBACK_FIELDS}
+def complete_items(digests: list[dict]) -> list[dict[str, Any]]:
+    """Build per-item writeback attributes with maps encoded for Layer's wire."""
+    items: list[dict[str, Any]] = []
     for d in digests:
         labels = derive_labels(d)
         labels_v2 = derive_labels_v2(d)
-        columns["events"].append(labels["events"])
-        columns["has_med_discontinuation"].append(labels["has_med_discontinuation"])
-        columns["has_adverse_event"].append(labels["has_adverse_event"])
-        columns["diagnosis_category"].append(labels["diagnosis_category"])
-        columns["specialty"].append(labels["specialty"])
-        columns["discontinuation_reason"].append(
-            discontinuation_reason(d) if labels["has_med_discontinuation"] else None
+        items.append(
+            {
+                **labels,
+                "discontinuation_reason": (
+                    discontinuation_reason(d) if labels["has_med_discontinuation"] else None
+                ),
+                "events_v2": labels_v2["events_v2"],
+                "event_groups_v2": labels_v2["event_groups_v2"],
+                "event_confidence_v2": encode_cascade_v2_map(
+                    labels_v2["event_confidence_v2"]
+                ),
+                "event_spans_v2": encode_cascade_v2_map(labels_v2["event_spans_v2"]),
+                "has_treatment_change_v2": labels_v2["has_treatment_change_v2"],
+                "has_treatment_response_v2": labels_v2["has_treatment_response_v2"],
+                "has_complication_v2": labels_v2["has_complication_v2"],
+                "has_care_transition_v2": labels_v2["has_care_transition_v2"],
+            }
         )
-        columns["events_v2"].append(labels_v2["events_v2"])
-        columns["event_groups_v2"].append(labels_v2["event_groups_v2"])
-        columns["event_confidence_v2"].append(labels_v2["event_confidence_v2"])
-        columns["event_spans_v2"].append(labels_v2["event_spans_v2"])
-        columns["has_treatment_change_v2"].append(labels_v2["has_treatment_change_v2"])
-        columns["has_treatment_response_v2"].append(labels_v2["has_treatment_response_v2"])
-        columns["has_complication_v2"].append(labels_v2["has_complication_v2"])
-        columns["has_care_transition_v2"].append(labels_v2["has_care_transition_v2"])
+    return items
+
+
+def build_bulk_patch_columns(digests: list[dict]) -> dict[str, list[Any]]:
+    """Tier-2 labels for a whole claim as aligned column arrays (patch_columns'
+    native shape: one write for N rows instead of N writes)."""
+    columns: dict[str, list[Any]] = {field: [] for field in WRITEBACK_FIELDS}
+    for item in complete_items(digests):
+        for field in WRITEBACK_FIELDS:
+            columns[field].append(item[field])
     return columns
 
 
@@ -633,7 +623,7 @@ async def run_batched_worker(*, once: bool = False, poll_interval: float = 2.0) 
 
             items = claimed.items
             digests = digest_batch(["" if i.input.get("text") is None else str(i.input.get("text")) for i in items])
-            columns = _batch_writeback_columns(digests)
+            columns = build_bulk_patch_columns(digests)
 
             # One multi-row patch per (namespace, claim) — items in a claim share
             # the target namespace in practice, but group defensively.
