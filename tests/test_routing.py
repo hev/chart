@@ -147,6 +147,11 @@ async def test_python_backend_config_matches_worker_shape(monkeypatch) -> None:
     }
 
 
+def test_search_payload_omits_unrendered_cascade_v2_maps() -> None:
+    assert "event_confidence_v2" not in search_app.INCLUDE
+    assert "event_spans_v2" not in search_app.INCLUDE
+
+
 def test_demo_chips_match_expected_auto_routes() -> None:
     path = Path(__file__).resolve().parent.parent / "web" / "static" / "queries.json"
     examples = json.loads(path.read_text())["examples"]

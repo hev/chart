@@ -17,6 +17,9 @@ const INCLUDE = [
   "discontinuation_reason",
   "similar_patient_ids",
 ];
+// event_confidence_v2/event_spans_v2 are intentionally absent: the renderer
+// does not consume them, so the API does not ship their JSON-string storage
+// form on every result. A future structured consumer should opt in + JSON.parse.
 
 const FACET_FIELDS = ["specialty", "age_band", "diagnosis_category", "gender", "events", "discontinuation_reason", "has_med_discontinuation"];
 // Clickable facet rail → a turbolisp `filters` clause on the same routed query.

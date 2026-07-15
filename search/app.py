@@ -51,6 +51,10 @@ INCLUDE = [
     "discontinuation_reason",
     "similar_patient_ids",
 ]
+# event_confidence_v2/event_spans_v2 are intentionally absent: the renderer
+# does not consume them, and requesting their JSON-string storage form on every
+# result would add payload with no UI behavior. A future structured consumer
+# should opt in and decode with chart_common.cascade_v2.decode_cascade_v2_map.
 TRANSIENT = {502, 503, 504}
 
 # The agentic path runs the configured Agent's whole reasoning loop in one
