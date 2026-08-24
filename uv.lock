@@ -552,7 +552,7 @@ requires-dist = [
     { name = "datasets", specifier = ">=3.0" },
     { name = "fastapi", marker = "extra == 'search'", specifier = ">=0.115" },
     { name = "fastembed", specifier = ">=0.4" },
-    { name = "hevlayer", editable = "../layer/clients/python" },
+    { name = "hevlayer", editable = "../layer-pro/clients/python" },
     { name = "ir-measures", marker = "extra == 'eval'", specifier = ">=0.3" },
     { name = "pydantic", specifier = ">=2.7" },
     { name = "pydantic-settings", specifier = ">=2.3" },
@@ -1335,7 +1335,7 @@ wheels = [
 [[package]]
 name = "hevlayer"
 version = "0.1.0"
-source = { editable = "../layer/clients/python" }
+source = { editable = "../layer-pro/clients/python" }
 dependencies = [
     { name = "httpx" },
     { name = "pydantic" },
@@ -1731,7 +1731,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/11/90/37cc12dd44c1f8fd84d5cc4e293467febe5a9899d6b55805485af7c21c9a/llguidance-1.7.6-cp314-cp314t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:4e4f2a489c1c3943bb1b3c206b45794153cb6954f45cd3de8e02198319ddc6b1", size = 3485304, upload-time = "2026-06-03T20:13:03.504Z" },
     { url = "https://files.pythonhosted.org/packages/51/b9/dc76d7716e04dc7b3427cae52eaa32bd20771382d4d1dd9f4538a9dd2086/llguidance-1.7.6-cp39-abi3-manylinux_2_31_aarch64.whl", hash = "sha256:e70fa25ed550c2b50c2fd70baa9e2808b4ecb859d01e453bd5459aff62ba38c3", size = 2899993, upload-time = "2026-06-03T20:13:13.563Z" },
     { url = "https://files.pythonhosted.org/packages/1a/64/d74336f22242ef94356a456057d4ff1be7c1bc9c7dbc867171c6982a5512/llguidance-1.7.6-cp39-abi3-manylinux_2_31_x86_64.whl", hash = "sha256:ceec951d29a74309984e3be0fe7f5f56c1362434cd937abd517b259a60908b1e", size = 3074809, upload-time = "2026-06-03T20:13:15.498Z" },
-    { url = "https://files.pythonhosted.org/packages/47/e6/6b61cecced5233739bc85e463d68d67d4b4c29fb6f91bd12e6b6a65647e3/llguidance-1.7.6-cp39-abi3-manylinux_2_39_riscv64.whl", hash = "sha256:e9f68206e0f3f89aceabb90aa1f8ed570db22fb7cb1fd9ebf96fa7727a65af55", size = 3603845, upload-time = "2026-06-03T20:13:19.473Z" },
 ]
 
 [[package]]

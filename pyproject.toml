@@ -45,6 +45,7 @@ package = false
 pythonpath = ["."]
 
 # hevlayer is not on PyPI yet (0.1, design-partner phase). Source it editable from
-# the sibling layer checkout; flip to a plain PyPI pin when it publishes.
+# the sibling layer-pro checkout (the rebuilt public layer repo no longer ships
+# the Python client); flip to a plain PyPI pin when it publishes.
 [tool.uv.sources]
-hevlayer = { path = "../layer/clients/python", editable = true }
+hevlayer = { path = "../layer-pro/clients/python", editable = true }
