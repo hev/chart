@@ -7,6 +7,7 @@ import time
 import urllib.parse
 import urllib.request
 from collections.abc import Iterable
+from itertools import islice
 from typing import Any
 
 from datasets import load_dataset
@@ -285,15 +286,16 @@ async def run() -> dict[str, Any]:
         _log(f"starting Hugging Face source mode={mode} dataset={source.get('dataset')} offset={start_offset}")
         if mode == "rows-api":
             while True:
-                if max_rows and staged + skipped >= max_rows:
+                if max_rows and offset - start_offset >= max_rows:
                     break
                 rows = _request_rows(source, offset=offset, length=page_size)
                 if not rows:
                     break
                 documents: list[tuple[str, list[dict[str, Any]]]] = []
                 for row in rows:
-                    if max_rows and staged + skipped >= max_rows:
+                    if max_rows and offset - start_offset >= max_rows:
                         break
+                    offset += 1
                     doc = _document(row, source)
                     if doc is None:
                         skipped += 1
@@ -301,7 +303,6 @@ async def run() -> dict[str, Any]:
                     documents.append(doc)
                 await _put_documents(layer, pipeline_id, documents, concurrency=write_concurrency)
                 staged += len(documents)
-                offset += len(rows)
                 if documents:
                     _log(f"staged documents={staged} next_offset={offset}")
                 if len(rows) < page_size:
@@ -311,9 +312,10 @@ async def run() -> dict[str, Any]:
         else:
             rows_iter = _stream_json_array(source, offset=start_offset) if mode == "direct-json" else _stream_rows(source, offset=start_offset)
             documents: list[tuple[str, list[dict[str, Any]]]] = []
+            # Bound iteration before fetching another row, including pending writes.
+            if max_rows:
+                rows_iter = islice(rows_iter, max(0, max_rows))
             for row in rows_iter:
-                if max_rows and staged + skipped >= max_rows:
-                    break
                 doc = _document(row, source)
                 if doc is None:
                     skipped += 1
