@@ -6,11 +6,11 @@
 #
 # Currently kind=turbopuffer — matches the CR actually applied in the `chart`
 # namespace (`turbopuffer-default`, created 2026-06-25). A kind=search cutover
-# was attempted (hev/layer#134) but the search-kind manifest was never actually
+# was attempted (hev/layer-pro#134) but the search-kind manifest was never actually
 # applied to this namespace; the namespace is still live on Turbopuffer, so this
 # file was reverted to match reality rather than leave the repo describing a
 # backend the cluster isn't using. See docs/kubernetes/vectorstore-crd in
-# ../layer before re-attempting the cutover.
+# ../layer-pro before re-attempting the cutover.
 apiVersion: hevlayer.com/v1alpha1
 kind: VectorStore
 metadata:

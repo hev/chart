@@ -16,7 +16,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Pass the sibling SDK with BuildKit (matches ../shop/search/Dockerfile):
-#   --build-context layer_client=../layer/clients/python
+#   --build-context layer_client=../layer-pro/clients/python
 COPY --from=layer_client . /layer/clients/python
 
 # CPU-only torch first, so sentence-transformers binds to the CPU build already
@@ -37,7 +37,7 @@ RUN pip install --no-cache-dir \
         "pydantic-settings>=2.3" \
     && pip install --no-cache-dir /layer/clients/python
 
-# Bake the exact Arctic model notesearch runs. fastembed's ONNX catalog lacks
+# Bake the exact Arctic model chart embeds with. fastembed's ONNX catalog lacks
 # v1.5, so Embedder falls back to sentence-transformers (chart_common/embed.py)
 # — bake via the same path so the runtime cache hit is identical.
 ARG EMBED_MODEL=Snowflake/snowflake-arctic-embed-m-v1.5

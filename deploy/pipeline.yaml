@@ -8,8 +8,8 @@
 # keep the ECR-hosted source worker explicit.
 #
 # CHUNKING — the one ingestion stage worth getting right (RFC 0076 § Chunking).
-# notesearch chunks with LangChain RecursiveCharacterTextSplitter at 1000 chars /
-# 200 overlap: character-based (splits mid-sentence, blind to note structure) and
+# A common baseline chunks with LangChain RecursiveCharacterTextSplitter at 1000
+# chars / 200 overlap: character-based (splits mid-sentence, blind to note structure) and
 # only ~200–250 tokens, under half the Arctic 512-token window. We improve on it:
 #   - token-based, sized to the embedder's 512-token max (Arctic silently
 #     truncates past it — a correctness point, not just recall);

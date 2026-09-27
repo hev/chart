@@ -6,7 +6,7 @@ from .config import ARCTIC_QUERY_PREFIX, LI_QUERY_MAX_CLAUSES
 
 
 class Embedder:
-    """Snowflake Arctic Embed m v1.5 — the model ../notesearch runs.
+    """Snowflake Arctic Embed m v1.5.
 
     Arctic is asymmetric: passages embed as-is, queries get the Arctic
     instruction prefix (``ARCTIC_QUERY_PREFIX``). We apply that prefix EXPLICITLY
@@ -16,7 +16,7 @@ class Embedder:
 
     The dev backend prefers fastembed when its ONNX catalog has the requested
     model. As of this pin, fastembed has older Arctic variants but not
-    `snowflake-arctic-embed-m-v1.5`, so the exact notesearch model falls back to
+    `snowflake-arctic-embed-m-v1.5`, so the exact model falls back to
     sentence-transformers. The prefix handling here does not change either way.
     """
 

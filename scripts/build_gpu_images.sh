@@ -32,7 +32,7 @@ fi
 embed_tag="${CHART_EMBED_IMAGE:-$default_embed_tag}"
 source_tag="${CHART_SOURCE_IMAGE:-$default_source_tag}"
 classifier_tag="${CHART_CLASSIFIER_IMAGE:-$default_classifier_tag}"
-layer_context="${CHART_LAYER_CLIENT_CONTEXT:-../layer/clients/python}"
+layer_context="${CHART_LAYER_CLIENT_CONTEXT:-../layer-pro/clients/python}"
 build_report="${CHART_GPU_BUILD_REPORT:-eval/out/gpu-build-report.json}"
 platform="${CHART_GPU_PLATFORM:-linux/amd64}"
 builder="${CHART_GPU_BUILDER:-docker}"

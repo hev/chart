@@ -27,7 +27,7 @@ spec:
     # GPU image with vLLM + the Gemma weights cache (the `classifier` extra).
     # No computeClass: scaling.pool below pins the GPU pool, and the operator's
     # gateway-registration equality check chokes on the redundant field
-    # (hev/layer#148 — the gateway strips it, so re-registration 409s forever).
+    # (hev/layer-pro#148 — the gateway strips it, so re-registration 409s forever).
     image: 186219257916.dkr.ecr.us-east-1.amazonaws.com/mesh:chart-classifier-plan-20260702-batched3
     batchSize: 16                       # claim size; the worker keeps vLLM resident
                                         # and patches derived labels via tpuf.

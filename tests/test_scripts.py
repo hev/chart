@@ -513,9 +513,9 @@ def test_plan_audit_ready_wrapper_prints_ready_steps_without_gateway_key(tmp_pat
 
 
 def test_readme_documents_plan_audit_next_step_fields() -> None:
-    readme = (Path(__file__).resolve().parent.parent / "README.md").read_text()
+    readme = (Path(__file__).resolve().parent.parent / "docs" / "operations.md").read_text()
 
-    assert "`scripts/final_gate.sh` is the final PLAN.md audit gate" in readme
+    assert "`scripts/final_gate.sh` is the final phase-gate audit" in readme
     assert "`next_steps`" in readme
     assert "`details`" in readme
     assert "`ready`" in readme
@@ -531,7 +531,7 @@ def test_readme_documents_plan_audit_next_step_fields() -> None:
 
 
 def test_readme_live_sequence_runs_classifier_before_event_facet_smoke() -> None:
-    readme = (Path(__file__).resolve().parent.parent / "README.md").read_text()
+    readme = (Path(__file__).resolve().parent.parent / "docs" / "operations.md").read_text()
 
     classifier_once = "scripts/phase4_event_smoke.sh"
     refresh_events = "scripts/refresh_facets.sh --fields age_band,gender,events"
@@ -648,7 +648,7 @@ def test_docs_include_audit_next_action_commands() -> None:
     root = Path(__file__).resolve().parent.parent
     docs = "\n".join(
         (root / path).read_text()
-        for path in ("README.md", "functions/README.md", "eval/README.md", "deploy/README.md")
+        for path in ("README.md", "docs/operations.md", "functions/README.md", "eval/README.md", "deploy/README.md")
     )
 
     for command in NEXT_ACTIONS.values():

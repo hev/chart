@@ -3,11 +3,11 @@
 Everything below was learned the hard way activating `chart-classify-events`
 (Gemma-2-9B on a `g5.xlarge`/A10G, vLLM ≥0.23) on 2026-07-02: five distinct
 environmental failures, each discovered only after fixing the previous one,
-each costing an image rebuild (~15 min) plus the hev/layer#148 re-registration
+each costing an image rebuild (~15 min) plus the hev/layer-pro#148 re-registration
 dance. This is the checklist that would have made it one build.
 
 The distilled version of this list is proposed as a Layer-provided base image
-in `../layer/docs/rfcs/0094-gpu-inference-base-image.md`; until that ships,
+in `../layer-pro/docs/rfcs/0094-gpu-inference-base-image.md`; until that ships,
 every self-hosted-model UDF should copy `deploy/Dockerfile.gpu`'s `classifier`
 stage rather than starting from a bare CUDA image.
 
@@ -75,13 +75,13 @@ Cluster (all found here first, all reported):
 
 - [ ] AWS G/VT-instance vCPU quota: default 4 vCPUs = **one** `g5.xlarge` per
       account. Request the bump before the demo day, not during
-- [ ] hev/layer#148: any Function spec change (image tag!) bricks gateway
+- [ ] hev/layer-pro#148: any Function spec change (image tag!) bricks gateway
       re-registration; every roll currently needs `DELETE /v2/udfs/{id}` +
       operator re-create + resume + re-discover
-- [ ] hev/layer#150: on kind=search namespaces, re-discovery after the first
+- [ ] hev/layer-pro#150: on kind=search namespaces, re-discovery after the first
       completions 400s (virtual `_hevlayer_*_stale_after` leaks into the
       engine filter) — the backfill can only be restarted by a Layer fix.
       (kind=search only; `chart-notes` is on Turbopuffer today, so this does
       not currently bind chart)
-- [ ] hev/layer#149: a poison document in *another* tenant's pipeline can hold
+- [ ] hev/layer-pro#149: a poison document in *another* tenant's pipeline can hold
       the shared GPU with zero progress; queue depth is not progress

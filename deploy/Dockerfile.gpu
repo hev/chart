@@ -21,7 +21,7 @@ WORKDIR /opt/chart
 
 # Build context is the chart repo. The editable hevlayer dependency is copied
 # from the sibling checkout through BuildKit:
-#   docker buildx build -f deploy/Dockerfile.gpu --build-context layer_client=../layer/clients/python .
+#   docker buildx build -f deploy/Dockerfile.gpu --build-context layer_client=../layer-pro/clients/python .
 COPY --from=layer_client . /opt/layer/clients/python
 COPY . /opt/chart
 

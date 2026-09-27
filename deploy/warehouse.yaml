@@ -9,16 +9,16 @@
 # (tokenSecretRef omitted) — the credential-optional case (RFC 0053). NO NEW
 # WAREHOUSE KIND: this reuses the shipped `huggingface` kind verbatim.
 #
-# ── THE TRIO TWIN ──────────────────────────────────────────────────────────
-# This whole demo is the public twin of Trio's `notesearch`. Pointing the same
-# Pipeline at Trio's real Snowflake-fed clinical notes is THIS ONE BLOCK swapped
-# (RFC 0076 § Architecture); nothing downstream (chunk/embed/route/UX) changes:
+# ── SWAPPING IN A PRIVATE CORPUS ───────────────────────────────────────────
+# Pointing the same Pipeline at clinical notes held in Snowflake is THIS ONE
+# BLOCK swapped (RFC 0076 § Architecture); nothing downstream
+# (chunk/embed/route/UX) changes:
 #
 #   spec:
 #     kind: snowflake
 #     snowflake:
-#       account: trio-xxxxx
-#       keyPairSecretRef: { name: trio-snowflake }   # mandatory here
+#       account: <account>
+#       keyPairSecretRef: { name: <snowflake-key-secret> }   # mandatory here
 #
 apiVersion: hevlayer.com/v1alpha1
 kind: Warehouse

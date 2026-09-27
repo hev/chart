@@ -27,7 +27,7 @@ BUILD="${BUILD:-1}"
 BUILDER="${BUILDER:-depot}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 DEPOT_PROJECT_ID="${DEPOT_PROJECT_ID:-8zfcn2cf80}"
-LAYER_CLIENT_CONTEXT="${LAYER_CLIENT_CONTEXT:-../layer/clients/python}"
+LAYER_CLIENT_CONTEXT="${LAYER_CLIENT_CONTEXT:-../layer-pro/clients/python}"
 CERT_ARN="${CERT_ARN:-}"
 INGRESS_HOST="${INGRESS_HOST:-chart.hevlayer.com}"
 

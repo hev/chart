@@ -180,8 +180,8 @@ async def write_notes(layer: AsyncHevlayer, namespace: str, rows: list[dict]) ->
             # kind=search currently returns {"status":"OK"} for writes, while
             # the generated Python client still expects the Turbopuffer write
             # shape. The write already succeeded server-side; keep indexing and
-            # track the client mismatch in hev/layer#137.
-            return {"status": "OK", "client_parse_warning": "hev/layer#137"}
+            # track the client mismatch in hev/layer-pro#137.
+            return {"status": "OK", "client_parse_warning": "hev/layer-pro#137"}
         raise
 
 
@@ -222,7 +222,7 @@ def count_selector(
         exactly and count the typo-surfaced matches too — and chart-notes lives
         on Turbopuffer today (the kind=search cutover was never applied), where
         it is supported; `fts` is a conservative leftover from when the store
-        was believed cut over to kind=search, which rejects it (hev/layer#141).
+        was believed cut over to kind=search, which rejects it (hev/layer-pro#141).
         Until it moves, fuzzy-surfaced hits are approximated by their exact
         lexical terms;
       - semantic query → an `ann` ball of `radius` (cosine distance) around the
@@ -295,7 +295,7 @@ def unnest_array_facets(values: list[dict]) -> list[dict]:
     """Explode serialized-array facet buckets into per-element counts.
 
     Snapshot histograms over a `[]string` column currently bucket by the whole
-    JSON-serialized array ('["a","b"]' n=7) instead of per element (hev/layer#151
+    JSON-serialized array ('["a","b"]' n=7) instead of per element (hev/layer-pro#151
     — the live values-mode scan already unnests, the snapshot writer doesn't). A
     doc counts once per element it carries, so element count = Σ n over the
     buckets containing it: exploding here is exact, not an approximation. Scalar

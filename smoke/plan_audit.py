@@ -1941,7 +1941,7 @@ def summarize(*, env: dict[str, str] | None = None) -> dict[str, Any]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Audit PLAN.md completion from persisted gate reports")
+    parser = argparse.ArgumentParser(description="Audit phase-gate completion from persisted gate reports")
     parser.add_argument("--out", type=Path, default=None, help="write the audit report to this JSON path")
     parser.add_argument("--ready", action="store_true", help="print only currently runnable next-step commands")
     parser.add_argument("--requirements", action="store_true", help="include local requirement diagnostics in the JSON report")

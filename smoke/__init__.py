@@ -1,1 +1,1 @@
-"""Live smoke checks for chart's PLAN.md exit gates."""
+"""Live smoke checks for chart's phase exit gates."""
