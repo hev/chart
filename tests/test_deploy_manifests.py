@@ -40,7 +40,7 @@ def test_gpu_embed_pipeline_manifest_is_unpaused_and_gpu_backed() -> None:
     assert manifest["spec"]["pipelineId"] == "chart-notes"
     assert manifest["spec"]["target"]["namespace"] == "chart-notes"
     # Pipelines don't go through UDF gateway registration, so computeClass is
-    # fine here (the hev/layer#148 strip applies to the events Function only).
+    # fine here (the hev/layer-pro#148 strip applies to the events Function only).
     assert manifest["spec"]["worker"]["computeClass"] == "gpu"
     container = manifest["spec"]["worker"]["podSpec"]["containers"][0]
     assert container["name"] == "worker"
@@ -71,7 +71,7 @@ def test_events_function_manifest_is_resumable() -> None:
     assert container["command"] == ["uv", "run", "python", "-m", "functions.classify_events"]
     assert manifest["spec"]["scaling"]["pool"] == "gpu"
     # No worker.computeClass: scaling.pool pins gpu, and the operator's UDF
-    # re-registration equality check rejects the redundant field (hev/layer#148).
+    # re-registration equality check rejects the redundant field (hev/layer-pro#148).
     assert "computeClass" not in manifest["spec"]["worker"]
     assert manifest["spec"]["scaling"]["replicas"]["max"] == 2
 

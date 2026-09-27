@@ -10,7 +10,7 @@ Each file is a `Function`: discovery, batching, claim leases, retries, and
 | `classify_events.py` | **gpu** | `events` + derived labels | **The GPU showcase.** A Gemma cascade (vLLM, guided decoding) finds clinical events — medication discontinuation the headline — and derives facet labels in the same pass. |
 | `tag_specialty.py` | cpu | `specialty` | Legacy fallback; the Gemma cascade now derives this in the main GPU pass. |
 | `extract_clinical_fields.py` | cpu | `diagnosis_category` (+more) | Legacy fallback; the Gemma cascade now derives the facet labels in the main GPU pass. |
-| `scan_phi.py` | cpu | `phi_flag` | De-id *verification* — the per-row safety transform a real notesearch wants. |
+| `scan_phi.py` | cpu | `phi_flag` | De-id *verification* — the per-row safety transform a real clinical-notes deployment wants. |
 
 ## The new showcase: a Gemma clinical-event cascade
 
@@ -29,7 +29,7 @@ for the first time and specialized to **clinical events**:
   for the structured `discontinuation_reason`.
 
 Why medication discontinuation? It is a concrete pharmacovigilance / cohort signal
-a clinical customer (Trio) actually wants, and it composes with the routing
+a clinical customer actually wants, and it composes with the routing
 headline: an `events` filter over an `Auto`-routed search — *"discontinued statins
 due to an adverse reaction"* — is a query neither keyword nor a flat note search
 answers. `deploy/functions-events.yaml` is the `pool: gpu`, scale-to-zero Function.

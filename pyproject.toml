@@ -1,7 +1,7 @@
 [project]
 name = "chart"
 version = "0.1.0"
-description = "Clinical patient-notes search that shows its routing — a query-routing demo on hev layer (the public twin of notesearch)"
+description = "Clinical patient-notes search that shows its routing — a query-routing demo on hev layer"
 readme = "README.md"
 # CC-BY-NC-SA-4.0: the PMC-Patients corpus is non-commercial. The demo is too.
 license = { text = "CC-BY-NC-SA-4.0" }

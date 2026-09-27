@@ -5,9 +5,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Snowflake/snowflake-arctic-embed-m-v1.5 output dimensionality. Documented here
 # so the schema (index) side and the query side agree without loading the model.
-# This is the SAME embedding model ../notesearch runs (it slugs its namespaces
-# `…-arctic`), so retrieval behavior transfers from this public twin to Trio's
-# real workload. See RFC 0076 § Embedding.
+# Arctic is a common production choice for clinical-note search, so retrieval
+# behavior here transfers to real deployments. See RFC 0076 § Embedding.
 EMBED_DIM = 768
 
 # Arctic is a query/document-asymmetric model: documents embed as-is, a query is
@@ -44,7 +43,7 @@ class Settings(BaseSettings):
     # Gateway. The backing store is Turbopuffer (deploy/vectorstore.yaml,
     # kind=turbopuffer — the kind=search cutover was attempted but never
     # applied): the key is a Layer inbound key scoped to chart-notes, which
-    # needs the mirror grant on vectorstore.turbopuffer-default (hev/layer#145).
+    # needs the mirror grant on vectorstore.turbopuffer-default (hev/layer-pro#145).
     gateway_url: str = Field(
         default="https://aws-us-east-1.hevlayer.com",
         validation_alias=AliasChoices("LAYER_GATEWAY_URL", "HEVLAYER_BASE_URL"),

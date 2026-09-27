@@ -185,7 +185,7 @@ async function facets(request, env, url) {
 
 // Explode serialized-array facet buckets into per-element counts. Snapshot
 // histograms over a []string column bucket by the whole JSON-serialized array
-// (hev/layer#151 — the values-mode scan unnests, the snapshot writer doesn't).
+// (hev/layer-pro#151 — the values-mode scan unnests, the snapshot writer doesn't).
 // Element count = Σ n over buckets containing it (exact); scalars pass through,
 // empty arrays contribute nothing. Mirrors chart_common.gateway.unnest_array_facets.
 function unnestArrayFacets(values) {
@@ -243,7 +243,7 @@ async function facetCounts(request, env, url) {
 // A `hybrid_text` selector (BM25 + per-token fuzzy, RFC 0057) would mirror the
 // fused route exactly — and chart-notes lives on Turbopuffer today (the
 // kind=search cutover was never applied), where it is supported; `fts` is a
-// leftover from the assumed cutover (kind=search rejects it, hev/layer#141), so
+// leftover from the assumed cutover (kind=search rejects it, hev/layer-pro#141), so
 // fuzzy/typo matches are approximated by their exact lexical terms. At most one
 // ranked selector; vector+radius (semantic only) wins. Mirrors
 // chart_common.gateway.count_selector.

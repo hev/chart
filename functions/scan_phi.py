@@ -1,10 +1,10 @@
 """scan-phi — de-identification *verification* over note text.
 
-The per-row safety transform a real `notesearch` wants: flag any residual
-identifier that survived de-identification. PMC-Patients is already de-identified
-(published case reports), so this should be near-empty on the public corpus — the
-point is that the SAME Function runs on Trio's real notes, where it is not a
-formality. RFC 0076 § Enrichment.
+The per-row safety transform a real clinical-notes deployment wants: flag any
+residual identifier that survived de-identification. PMC-Patients is already
+de-identified (published case reports), so this should be near-empty on the
+public corpus; the point is that the SAME Function runs on private notes, where
+it is not a formality. RFC 0076 § Enrichment.
 
 Its output is an OPERATIONAL attribute (`phi_flag`), not a search facet — a good
 example of a UDF whose writeback is not for the rail.

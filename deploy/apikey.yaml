@@ -3,7 +3,7 @@
 # Declarative equivalent of the LAYER_GATEWAY_API_KEY the backends load from the
 # environment. Two entitlements: data-plane read/write through the backing
 # store (Turbopuffer today — scoped to the chart-notes namespace; needs the
-# mirror grant on vectorstore.turbopuffer-default, hev/layer#145), and the right to invoke the
+# mirror grant on vectorstore.turbopuffer-default, hev/layer-pro#145), and the right to invoke the
 # agentic-search Agent (deploy/agent.yaml). The agent's reads still run under
 # this key's own vectorstore grant — `agent.<name>` governs who may invoke, not
 # what it reads. See docs/kubernetes/apikey-crd and docs/api/agents § Auth.
@@ -20,7 +20,7 @@ spec:
       scopes: [read, write]
       namespaces: ["chart-notes"]
     # The gateway rejects the bare `{}` form the docs show; invoking the agent
-    # requires an explicit read scope (hev/layer#146).
+    # requires an explicit read scope (hev/layer-pro#146).
     agent.chart-notes:
       scopes: [read]
   expiresAfter: never

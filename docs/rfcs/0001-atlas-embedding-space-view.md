@@ -6,7 +6,7 @@ commitment**. It composes chart with **hev map** (`../map`, binary `hevmap`) and
 introduces **no new gateway machinery and no new engine machinery** — anything
 here that seems to need either is a finding to file upstream, not code to write
 here (see § Where the findings go). Placement note: chart's design of record is
-Layer RFC 0076 (`../layer/docs/rfcs/0076-clinical-notes-query-routing-demo.md`);
+Layer RFC 0076 (`../layer-pro/docs/rfcs/0076-clinical-notes-query-routing-demo.md`);
 this RFC lives in chart because its subject is a chart demo surface, owned and
 built here, with hev map as a supplier.
 
@@ -80,11 +80,10 @@ Every beat renders a decision the stack already made — routing, cascade labels
 neighbors. Atlas adds no retrieval machinery; it is a second way of *seeing*
 the same responses the existing UI renders as badges and rails.
 
-The Trio framing is unchanged from RFC 0076: the public twin proves the UX and
-the plumbing on published case reports; the same Atlas over Trio's real notes
-runs inside their environment, where "the notes never leave the cluster" is the
-half of the pitch that matters most. hev map's own GTM line — 80M clinical
-patient notes — is literally this corpus domain at Trio scale.
+The framing is unchanged from RFC 0076: the public demo proves the UX and the
+plumbing on published case reports; the same Atlas over private clinical notes
+runs inside the customer's environment, where "the notes never leave the
+cluster" is the half of the pitch that matters most.
 
 ## Architecture
 
@@ -266,7 +265,7 @@ artifact.
   artifact validates against its schema and stays within the size budget
   (≤10 MB gzipped for the slice).
 - **Dependency:** the slice must be indexed live with cascade labels present —
-  i.e. chart `PLAN.md` Phase 2/3 (slice + base facets) and the Phase 4
+  i.e. chart's Phase 2/3 (slice + base facets) and the Phase 4
   classifier smoke for the `events` dimension. Atlas is a reason to finish
   those gates, not a way around them. Without Phase 4, the build runs with
   specialty/age/gender only and the events layer waits.
@@ -293,7 +292,7 @@ artifact).
 - **Gate:** glow layer counts reconcile with the `events` facet snapshot
   (same provenance discipline as the rail); neighbor bloom works offline from
   the artifact alone (no extra backend calls except the text preview by id).
-- **Dependency:** chart `PLAN.md` Phase 4 cascade gates (accepted classifier
+- **Dependency:** chart's Phase 4 cascade gates (accepted classifier
   cost report, `CHART_REQUIRE_EVENT_FACETS=1` smoke green).
 
 ### Phase 4 (stretch) — the agent constellation

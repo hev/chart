@@ -2,7 +2,7 @@ from chart_common.gateway import unnest_array_facets
 
 
 def test_unnest_array_facets_explodes_and_merges():
-    """hev/layer#151 mitigation: serialized-array buckets explode into
+    """hev/layer-pro#151 mitigation: serialized-array buckets explode into
     per-element counts, empty arrays drop, scalars pass through and merge."""
     values = [
         {"value": "[]", "count": 87},

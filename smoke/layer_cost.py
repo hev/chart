@@ -117,7 +117,7 @@ def _write(report: dict[str, Any], out: Path | None) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Write a PLAN.md cost gate report from Layer cost data")
+    parser = argparse.ArgumentParser(description="Write a phase-gate cost report from Layer cost data")
     parser.add_argument("--kind", choices=["embed", "classifier"], required=True)
     parser.add_argument("--window", choices=["1h", "6h", "24h", "7d", "30d"], default="24h")
     parser.add_argument("--accept", action="store_true", help="mark the Layer cost report accepted")

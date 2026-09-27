@@ -308,7 +308,7 @@ async def collect_gate_report(*, pipeline_id: str | None = None, udf_id: str = "
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="PLAN.md gate report for chart")
+    parser = argparse.ArgumentParser(description="Phase-gate report for chart")
     parser.add_argument("--pipeline-id", default=None)
     parser.add_argument("--udf-id", default="chart-classify-events")
     parser.add_argument(

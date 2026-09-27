@@ -22,9 +22,9 @@ Two things to know:
   shipped `huggingface` Warehouse (RFC 0053), `Auto`/`HybridText` routing
   (RFC 0044/0057), and the RFC 0056 chunk model. That is the RFC 0076 thesis: a
   new vertical with zero new gateway code.
-- **The Trio swap is one block.** `warehouse.yaml` carries the `kind: huggingface
-  → snowflake` swap that points this exact Pipeline at Trio's real `notesearch`
-  notes. Nothing else in the bundle changes.
+- **A private corpus is one block.** `warehouse.yaml` carries the `kind:
+  huggingface → snowflake` swap that points this exact Pipeline at notes held in
+  Snowflake. Nothing else in the bundle changes.
 
 Apply order: `namespace` → `vectorstore` → `warehouse` → `pipeline`
 → `pipeline-embed` → `index` → `functions-events`. Apply `pipeline-embed` only
@@ -79,7 +79,7 @@ the namespaced runtime resources.
 
 Production cutover is a Layer-team coordination item: the shared gateway must
 provision the `kind: search` VectorStore, the hev search engine, and repoint the
-`chart-notes` Index — the same request shelf made (tracked in hev/layer#134).
+`chart-notes` Index — the same request shelf made (tracked in hev/layer-pro#134).
 The agentic option additionally needs the `Agent` CR (`agent.yaml`) with its
 OpenRouter credential Secret, and the `agent.chart-notes` entitlement on the
 inbound key (`apikey.yaml`). These manifests document the requested shape; they
@@ -112,7 +112,7 @@ distinct tags, or set the two image variables directly. For ECR pushes the helpe
 runs `aws ecr get-login-password` unless `CHART_ECR_LOGIN=0`; `AWS_REGION`
 defaults to `us-east-1`. GPU worker images default to `CHART_GPU_PLATFORM=linux/amd64`.
 Set `CHART_GPU_BUILDER=depot` to use Depot CLI builds; `CHART_DEPOT_PROJECT_ID`
-defaults to the Layer production project used by `../layer/scripts/deploy-layer.sh`.
+defaults to the Layer production project used by `../layer-pro/scripts/deploy-layer.sh`.
 Set `CHART_PRELOAD_EVENTS_MODEL=` to build the classifier image without baking a
 Hugging Face model cache when model credentials are not available at build time.
 `scripts/build_gpu_images.sh` writes `CHART_GPU_BUILD_REPORT` with the exact

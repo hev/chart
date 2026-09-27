@@ -149,7 +149,7 @@ def test_worker_and_python_backends_share_facet_counts_scan_contract() -> None:
     # selector over the routed text field — a `hybrid_text` selector would mirror
     # the fused route exactly (BM25 + per-token fuzzy) and is supported on the
     # Turbopuffer store chart-notes actually lives on (the kind=search cutover
-    # was never applied; kind=search rejects it, hev/layer#141). `fts` is the
+    # was never applied; kind=search rejects it, hev/layer-pro#141). `fts` is the
     # conservative leftover: fuzzy-surfaced matches approximated by their exact
     # lexical terms.
     assert 'mode: "count"' in source and 'mode: "values"' in source

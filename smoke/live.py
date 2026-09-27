@@ -275,7 +275,7 @@ async def run(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Live PLAN.md smoke for indexed chart namespace")
+    parser = argparse.ArgumentParser(description="Live phase-gate smoke for indexed chart namespace")
     parser.add_argument("--top-k", type=positive_int, default=5)
     parser.add_argument("--similar-id", default=None)
     parser.add_argument("--skip-facets", action="store_true")
