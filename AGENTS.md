@@ -2,8 +2,8 @@
 
 A public demo on hev layer: clinical patient-notes search (PMC-Patients) where
 the gateway's query routing is the headline, plus a Gemma GPU classifier
-running on Layer's Function runtime. The design of record is RFC 0076 in
-`../layer-pro/docs/rfcs/`. `README.md` is the public tour; the gate run book
+running on Layer's Function runtime. The design of record is RFC 0076
+(`../layer-pro/docs/rfcs/0076-clinical-notes-query-routing-demo.md`). `README.md` is the public tour; the gate run book
 is `docs/operations.md`.
 
 **This repo is public.** Never put client names, client systems or anything
@@ -21,10 +21,11 @@ hits. The demo working is table stakes; the report is the deliverable.
 - **Read the docs, don't invent API.** The request and response shapes are in
   `../layer-pro/site/src/content/docs/` and
   `../layer-pro/apps/layer-gateway/openapi.yaml`.
-- **Report friction in Linear** (team `layer`): a bug or a wrong or missing
-  doc is an issue; a missing capability is an RFC in
-  `../layer-pro/docs/rfcs/` with this workload as the motivating case. Old
-  follow-ups cite `hev/layer-pro#NNN` GitHub issues; new ones go to Linear.
+- **Report friction in Linear** (team `LYR`, via the `linear` skill / CLI):
+  a bug or a wrong or missing doc is an issue; a missing capability is an RFC,
+  written as a Linear project with an `RFC: <name>` document, with this
+  workload as the motivating case. Old follow-ups cite `hev/layer-pro#NNN`
+  GitHub issues; new ones go to Linear.
 - **Layer operates itself.** Don't hand-tune scaling. If you must intervene
   to keep the demo up, the intervention gets an issue too.
 
