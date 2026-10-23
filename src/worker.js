@@ -1,6 +1,6 @@
 const LUXIR_DEMO_CONFIG = {
   "profile": "luxir_lexical_demo",
-  "notice": "Local Luxir preview \u00b7 synthetic notes, no real patients \u00b7 BM25 only",
+  "notice": "Luxir lexical preview \u00b7 synthetic notes, no real patients \u00b7 BM25 only",
   "filters": {
     "specialty": [
       "cardiology",

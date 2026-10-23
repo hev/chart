@@ -70,7 +70,11 @@ def main():
                 raise TimeoutError("owned Chart app readiness deadline exceeded")
             time.sleep(1)
     stores = request(args.gateway, "/v2/vectorstores")
-    assert any(store["kind"] == "luxir" and store["default"] for store in stores["vectorstores"])
+    from hevlayer.models import VectorStoreList
+    typed_stores = VectorStoreList.model_validate(stores)
+    assert any(store.kind == "luxir" and store.default for store in typed_stores.vectorstores)
+    if os.environ.get("CHART_LUXIR_STAGING") == "1" or os.environ.get("LAYER_SECRET_CHART_LUXIR_AUTH_GATEWAY_KEY"):
+        assert next(store for store in stores["vectorstores"] if store["kind"] == "luxir")["inboundAuth"]["mode"] == "keys"
     config = request(args.app, "/api/config")
     assert config["profile"] == "luxir_lexical_demo" and config["namespace"] == args.namespace
     def search(query="", filters=(), expected=()):
