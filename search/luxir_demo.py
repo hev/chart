@@ -10,7 +10,7 @@ FILTERS = {
 }
 CONFIG = {
     "profile": "luxir_lexical_demo",
-    "notice": "Local Luxir preview · synthetic notes, no real patients · BM25 only",
+    "notice": "Luxir lexical preview · synthetic notes, no real patients · BM25 only",
     "filters": FILTERS,
     "examples": [
         {"text": "dyspnea", "note": "Lexical search; try cardiology or pulmonology filters."},
@@ -21,8 +21,19 @@ CONFIG = {
 }
 
 
+STAGING_GATEWAY = "http://chart-luxir-layer-gateway.chart-luxir.svc.cluster.local:8080"
+
+
 def validate_target(settings):
     url = urlsplit(settings.gateway_url)
+    staging = getattr(settings, "luxir_staging", False)
+    if staging:
+        if (settings.gateway_url != STAGING_GATEWAY or settings.namespace != "chart_demo_staging"
+                or not getattr(settings, "api_key", None)
+                or not getattr(settings, "demo_basic_user", None)
+                or not getattr(settings, "demo_basic_password", None)):
+            raise ValueError("Luxir staging requires the dedicated chart-luxir service, fixture namespace and runtime auth")
+        return
     if (url.scheme != "http" or url.hostname != "127.0.0.1" or not url.port
             or url.username or url.password or url.query or url.fragment or url.path not in ("", "/")
             or not settings.namespace.startswith("chart_demo_") or len(settings.namespace) <= len("chart_demo_")

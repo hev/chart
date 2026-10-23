@@ -5,7 +5,7 @@ const [gateway, namespace] = process.argv.slice(2);
 assert(gateway && namespace);
 const source = await readFile(new URL('../src/worker.js', import.meta.url), 'utf8');
 const { default: worker } = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
-const env = { CHART_LUXIR_DEMO: '1', LAYER_GATEWAY_URL: gateway, CHART_NAMESPACE: namespace, LAYER_GATEWAY_API_KEY: 'local-demo' };
+const env = { CHART_LUXIR_DEMO: '1', LAYER_GATEWAY_URL: gateway, CHART_NAMESPACE: namespace, LAYER_GATEWAY_API_KEY: process.env.LAYER_GATEWAY_API_KEY || 'local-demo' };
 async function call(path, status = 200, expected) {
   const response = await worker.fetch(new Request('http://127.0.0.1:8787' + path), env);
   const value = await response.json();

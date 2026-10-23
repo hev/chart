@@ -119,6 +119,11 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     try {
+      if (env.CHART_LUXIR_STAGING === "1" && env.CHART_LUXIR_DEMO !== "1") {
+        const error = new Error("CHART_LUXIR_STAGING requires CHART_LUXIR_DEMO");
+        error.status = 400;
+        throw error;
+      }
       if (env.CHART_LUXIR_DEMO === "1") return await luxirDemo(request, env, url);
       if (url.pathname === "/api/search") return search(request, env, url);
       if (url.pathname.startsWith("/api/similar/")) return similar(request, env, url);
@@ -534,7 +539,22 @@ function json(body, init = {}) {
 // Explicit local-only profile; ordinary Worker deployments retain their contract.
 async function luxirDemo(request, env, url) {
   const target = new URL(gatewayUrl(env));
-  if (url.hostname !== "127.0.0.1" || target.protocol !== "http:" || target.hostname !== "127.0.0.1" || !target.port || target.username || target.password || target.search || target.hash || target.pathname !== "/" || !/^chart_demo_[a-z0-9_]+$/.test(namespace(env))) {
+  const staging = env.CHART_LUXIR_STAGING === "1";
+  if (staging) {
+    if (gatewayUrl(env) !== "http://chart-luxir-layer-gateway.chart-luxir.svc.cluster.local:8080" || namespace(env) !== "chart_demo_staging" || !env.LAYER_GATEWAY_API_KEY || !env.CHART_DEMO_BASIC_USER || !env.CHART_DEMO_BASIC_PASSWORD) {
+      const error = new Error("Luxir staging requires dedicated service, fixture namespace and runtime auth");
+      error.status = 400;
+      throw error;
+    }
+    if (url.pathname === "/healthz") return json({status: "ok"});
+    const expected = "Basic " + btoa(String.fromCharCode(...new TextEncoder().encode(env.CHART_DEMO_BASIC_USER + ":" + env.CHART_DEMO_BASIC_PASSWORD)));
+    // Compare all bytes without an early return; never expose credentials in errors.
+    const supplied = request.headers.get("authorization") || "";
+    let diff = supplied.length ^ expected.length;
+    for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ (supplied.charCodeAt(i) || 0);
+    if (diff) return json({detail: "Authentication required"}, {status: 401, headers: {"www-authenticate": 'Basic realm="Chart Luxir staging", charset="UTF-8"', "cache-control": "no-store"}});
+  }
+  if (!staging && (url.hostname !== "127.0.0.1" || target.protocol !== "http:" || target.hostname !== "127.0.0.1" || !target.port || target.username || target.password || target.search || target.hash || target.pathname !== "/" || !/^chart_demo_[a-z0-9_]+$/.test(namespace(env)))) {
     const error = new Error("Luxir demo requires loopback preview and gateway with chart_demo_ namespace");
     error.status = 400;
     throw error;

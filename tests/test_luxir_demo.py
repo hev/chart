@@ -65,3 +65,44 @@ def test_demo_note_viewer_relabels_authored_data_and_disables_unsupported_contro
     assert "similar.disabled = lexicalDemo" in ui
     assert "control.disabled = true" in ui
     assert "if (!lexicalDemo) refreshCounts" in ui
+
+
+@pytest.mark.parametrize("field,value", [
+    ("gateway_url", "http://other.chart-luxir.svc.cluster.local:8080"),
+    ("gateway_url", "http://127.0.0.1:8080"),
+    ("namespace", "chart-notes"),
+    ("api_key", None),
+    ("demo_basic_user", None),
+    ("demo_basic_password", None),
+])
+def test_staging_requires_exact_service_namespace_and_auth(field, value):
+    settings = dict(gateway_url=luxir_demo.STAGING_GATEWAY, namespace="chart_demo_staging",
+                    luxir_staging=True, api_key="test-only", demo_basic_user="test-only",
+                    demo_basic_password="test-only")
+    luxir_demo.validate_target(SimpleNamespace(**settings))
+    settings[field] = value
+    with pytest.raises(ValueError):
+        luxir_demo.validate_target(SimpleNamespace(**settings))
+
+
+@pytest.mark.anyio
+async def test_staging_auth_guards_ui_and_api_and_leaves_health_probe(monkeypatch):
+    import base64
+    import httpx
+    for key, value in {"CHART_LUXIR_DEMO": "1", "CHART_LUXIR_STAGING": "1",
+                       "CHART_NAMESPACE": "chart_demo_staging", "LAYER_GATEWAY_URL": luxir_demo.STAGING_GATEWAY,
+                       "LAYER_GATEWAY_API_KEY": "test-only", "CHART_DEMO_BASIC_USER": "viewer",
+                       "CHART_DEMO_BASIC_PASSWORD": "test-only"}.items():
+        monkeypatch.setenv(key, value)
+    async with backend.lifespan(backend.app):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=backend.app), base_url="https://chart-luxir.example") as client:
+            for path in ["/", "/api/config", "/api/search"]:
+                response = await client.get(path)
+                assert response.status_code == 401
+                assert "Basic" in response.headers["www-authenticate"]
+            for token in ["garbage", "Bearer test-only", "Basic !!!", "Basic " + base64.b64encode(b"viewer:wrong").decode()]:
+                assert (await client.get("/api/config", headers={"Authorization": token})).status_code == 401
+            assert (await client.get("/healthz")).status_code == 200
+            assert (await client.get("/", auth=("viewer", "test-only"))).status_code == 200
+            assert (await client.get("/api/config", auth=("viewer", "test-only"))).status_code == 200
+            # No search request is made here; this test isolates the inbound gate.

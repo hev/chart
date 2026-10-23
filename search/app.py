@@ -6,6 +6,9 @@ return the gateway's own routing echo; the static UI renders it. RFC 0076 § UX
 
 from __future__ import annotations
 
+import base64
+import hmac
+import binascii
 import asyncio
 import time
 from contextlib import asynccontextmanager
@@ -111,6 +114,8 @@ def parse_filters(raw: list[str] | None) -> Any | None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.settings = Settings()
+    if app.state.settings.luxir_staging and not app.state.settings.luxir_demo:
+        raise ValueError("CHART_LUXIR_STAGING requires CHART_LUXIR_DEMO")
     if getattr(app.state.settings, "luxir_demo", False):
         luxir_demo.validate_target(app.state.settings)
     app.state.embedder = None if getattr(app.state.settings, "luxir_demo", False) else Embedder(app.state.settings.embed_model)
@@ -137,6 +142,18 @@ async def cache_policy(request, call_next):
     to ~an hour with no revalidation. Static pages revalidate every time
     (no-cache still yields cheap 304s off StaticFiles' validators); API
     responses are per-search and never worth caching."""
+    settings = getattr(app.state, "settings", None)
+    if settings and getattr(settings, "luxir_staging", False) and request.url.path != "/healthz":
+        try:
+            scheme, encoded = request.headers.get("authorization", "").split(" ", 1)
+            supplied = base64.b64decode(encoded, validate=True).decode("utf-8")
+            expected = f"{settings.demo_basic_user}:{settings.demo_basic_password}"
+            authenticated = scheme.lower() == "basic" and hmac.compare_digest(supplied.encode(), expected.encode())
+        except (ValueError, UnicodeError, binascii.Error):
+            authenticated = False
+        if not authenticated:
+            return JSONResponse({"detail": "Authentication required"}, status_code=401,
+                                headers={"WWW-Authenticate": 'Basic realm="Chart Luxir staging", charset="UTF-8"', "Cache-Control": "no-store"})
     response = await call_next(request)
     if "cache-control" not in response.headers:
         is_api = request.url.path.startswith("/api/")

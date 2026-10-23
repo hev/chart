@@ -42,6 +42,10 @@ class Settings(BaseSettings):
 
     luxir_demo: bool = Field(default=False, validation_alias="CHART_LUXIR_DEMO")
 
+    luxir_staging: bool = Field(default=False, validation_alias="CHART_LUXIR_STAGING")
+    demo_basic_user: str | None = Field(default=None, validation_alias="CHART_DEMO_BASIC_USER")
+    demo_basic_password: str | None = Field(default=None, validation_alias="CHART_DEMO_BASIC_PASSWORD")
+
     # Gateway. The backing store is Turbopuffer (deploy/vectorstore.yaml,
     # kind=turbopuffer — the kind=search cutover was attempted but never
     # applied): the key is a Layer inbound key scoped to chart-notes, which
