@@ -1,3 +1,52 @@
+const LUXIR_DEMO_CONFIG = {
+  "profile": "luxir_lexical_demo",
+  "notice": "Luxir lexical preview \u00b7 synthetic notes, no real patients \u00b7 BM25 only",
+  "filters": {
+    "specialty": [
+      "cardiology",
+      "pulmonology",
+      "endocrinology"
+    ],
+    "age_band": [
+      "adult",
+      "older_adult"
+    ],
+    "gender": [
+      "female",
+      "male"
+    ],
+    "diagnosis_category": [
+      "heart_failure",
+      "asthma",
+      "diabetes"
+    ]
+  },
+  "examples": [
+    {
+      "text": "dyspnea",
+      "note": "Lexical search; try cardiology or pulmonology filters."
+    },
+    {
+      "text": "metformin",
+      "note": "Lexical search of the synthetic diabetes note."
+    },
+    {
+      "text": "wheezing",
+      "note": "Lexical search of the synthetic asthma note."
+    }
+  ],
+  "unsupported": [
+    "Auto routing",
+    "semantic search",
+    "similar patients",
+    "agentic search",
+    "late interaction",
+    "facet counts",
+    "classifier writeback"
+  ]
+};
+const LUXIR_DEMO_INCLUDE = ["id", "title", "text", "age", "age_band", "gender", "specialty", "diagnosis_category"];
+
 const INCLUDE = [
   "id",
   "title",
@@ -70,6 +119,12 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     try {
+      if (env.CHART_LUXIR_STAGING === "1" && env.CHART_LUXIR_DEMO !== "1") {
+        const error = new Error("CHART_LUXIR_STAGING requires CHART_LUXIR_DEMO");
+        error.status = 400;
+        throw error;
+      }
+      if (env.CHART_LUXIR_DEMO === "1") return await luxirDemo(request, env, url);
       if (url.pathname === "/api/search") return search(request, env, url);
       if (url.pathname.startsWith("/api/similar/")) return similar(request, env, url);
       if (url.pathname === "/api/facets") return facets(request, env, url);
@@ -479,4 +534,54 @@ function json(body, init = {}) {
       ...(init.headers || {}),
     },
   });
+}
+
+// Explicit local-only profile; ordinary Worker deployments retain their contract.
+async function luxirDemo(request, env, url) {
+  const target = new URL(gatewayUrl(env));
+  const staging = env.CHART_LUXIR_STAGING === "1";
+  if (staging) {
+    if (gatewayUrl(env) !== "http://chart-luxir-layer-gateway.chart-luxir.svc.cluster.local:8080" || namespace(env) !== "chart_demo_staging" || !env.LAYER_GATEWAY_API_KEY || !env.CHART_DEMO_BASIC_USER || !env.CHART_DEMO_BASIC_PASSWORD) {
+      const error = new Error("Luxir staging requires dedicated service, fixture namespace and runtime auth");
+      error.status = 400;
+      throw error;
+    }
+    if (url.pathname === "/healthz") return json({status: "ok"});
+    const expected = "Basic " + btoa(String.fromCharCode(...new TextEncoder().encode(env.CHART_DEMO_BASIC_USER + ":" + env.CHART_DEMO_BASIC_PASSWORD)));
+    // Compare all bytes without an early return; never expose credentials in errors.
+    const supplied = request.headers.get("authorization") || "";
+    let diff = supplied.length ^ expected.length;
+    for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ (supplied.charCodeAt(i) || 0);
+    if (diff) return json({detail: "Authentication required"}, {status: 401, headers: {"www-authenticate": 'Basic realm="Chart Luxir staging", charset="UTF-8"', "cache-control": "no-store"}});
+  }
+  if (!staging && (url.hostname !== "127.0.0.1" || target.protocol !== "http:" || target.hostname !== "127.0.0.1" || !target.port || target.username || target.password || target.search || target.hash || target.pathname !== "/" || !/^chart_demo_[a-z0-9_]+$/.test(namespace(env)))) {
+    const error = new Error("Luxir demo requires loopback preview and gateway with chart_demo_ namespace");
+    error.status = 400;
+    throw error;
+  }
+  if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(request);
+  assertMethod(request, "GET");
+  if (url.pathname === "/api/config") return json({...LUXIR_DEMO_CONFIG, namespace: namespace(env), field: "text"});
+  if (url.pathname !== "/api/search" || url.searchParams.get("agentic") && url.searchParams.get("agentic") !== "0" || url.searchParams.get("li") && url.searchParams.get("li") !== "0") {
+    const error = new Error("Unsupported in Luxir lexical demo: this API / search mode");
+    error.status = 422;
+    throw error;
+  }
+  for (const item of url.searchParams.getAll("f")) {
+    if (!Object.hasOwn(LUXIR_DEMO_CONFIG.filters, item.split(":", 1)[0])) {
+      const error = new Error("Unsupported in Luxir lexical demo: only scalar preset filters");
+      error.status = 422;
+      throw error;
+    }
+  }
+  const query = (url.searchParams.get("q") || "").trim();
+  const body = {
+    rank_by: query ? ["text", "BM25", query] : ["id", "asc"],
+    top_k: boundedTopK(url.searchParams.get("top_k"), 20, 50),
+    include_attributes: LUXIR_DEMO_INCLUDE,
+  };
+  const filters = parseFilters(url);
+  if (filters) body.filters = filters;
+  const result = await queryNamespace(env, body);
+  return json({...result, query, retrieval: query ? "BM25" : "ID order"});
 }

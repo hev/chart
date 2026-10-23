@@ -1,0 +1,12 @@
+{
+  "provenance": "Authored synthetic, deidentified teaching examples for software demonstration. No real patients, reports, archives or classifier output. Not for clinical use.",
+  "license": "CC0-1.0",
+  "rows": [
+    {"id":"case_001","title":"Synthetic case: progressive dyspnea","text":"An older adult woman reports progressive dyspnea and ankle edema. The teaching assessment discusses heart failure and a planned echocardiogram. This fictional note contains no actual patient data.","age":72,"age_band":"older_adult","gender":"female","specialty":"cardiology","diagnosis_category":"heart_failure"},
+    {"id":"case_002","title":"Synthetic case: episodic wheezing","text":"An adult woman reports wheezing and dyspnea after exercise. The teaching assessment discusses asthma and inhaler technique. This fictional note contains no actual patient data.","age":34,"age_band":"adult","gender":"female","specialty":"pulmonology","diagnosis_category":"asthma"},
+    {"id":"case_003","title":"Synthetic case: diabetes follow-up","text":"An adult man attends a diabetes follow-up. The teaching assessment discusses metformin and routine glucose monitoring. This fictional note contains no actual patient data.","age":48,"age_band":"adult","gender":"male","specialty":"endocrinology","diagnosis_category":"diabetes"},
+    {"id":"case_004","title":"Synthetic case: cardiac review","text":"An adult man reports dyspnea and fatigue. The teaching assessment discusses heart failure follow-up and a cardiac review. This fictional note contains no actual patient data.","age":56,"age_band":"adult","gender":"male","specialty":"cardiology","diagnosis_category":"heart_failure"},
+    {"id":"case_005","title":"Synthetic case: asthma review","text":"An older adult man attends an asthma review after cough and wheezing. The teaching assessment discusses an inhaler review. This fictional note contains no actual patient data.","age":68,"age_band":"older_adult","gender":"male","specialty":"pulmonology","diagnosis_category":"asthma"},
+    {"id":"case_006","title":"Synthetic case: glucose review","text":"An older adult woman attends a diabetes review. The teaching assessment discusses glucose monitoring and dietary history. This fictional note contains no actual patient data.","age":75,"age_band":"older_adult","gender":"female","specialty":"endocrinology","diagnosis_category":"diabetes"}
+  ]
+}
