@@ -21,6 +21,7 @@ from hevlayer.client import HevlayerError
 
 from chart_common.config import EMBED_DIM, Settings
 from chart_common.embed import Embedder
+from . import luxir_demo
 from chart_common.gateway import (
     FACET_FIELDS,
     close_client,
@@ -110,7 +111,9 @@ def parse_filters(raw: list[str] | None) -> Any | None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.settings = Settings()
-    app.state.embedder = Embedder(app.state.settings.embed_model)
+    if getattr(app.state.settings, "luxir_demo", False):
+        luxir_demo.validate_target(app.state.settings)
+    app.state.embedder = None if getattr(app.state.settings, "luxir_demo", False) else Embedder(app.state.settings.embed_model)
     # The LI token-bag embedder loads lazily on the first ?li=1 query — it is a
     # try-out mode (Turbopuffer late-interaction beta), not the hot path, and
     # its ONNX download shouldn't gate readiness.
@@ -339,6 +342,19 @@ async def search(
     infers its own, echoed in the response."""
     query = q.strip()
     filters = parse_filters(f)
+    if getattr(app.state.settings, "luxir_demo", False):
+        if agentic or li:
+            raise HTTPException(422, "Unsupported in Luxir lexical demo: agentic / late interaction")
+        if any(item.partition(":")[0] not in luxir_demo.FILTERS for item in f):
+            raise HTTPException(422, "Unsupported in Luxir lexical demo: only scalar preset filters")
+        body = QueryRequest(
+            rank_by=["text", "BM25", query] if query else ["id", "asc"],
+            top_k=max(1, min(top_k, 50)), include_attributes=luxir_demo.INCLUDE,
+            filters=filters,
+        )
+        result = await _run_query(body)
+        result.update(query=query, retrieval="BM25" if query else "ID order")
+        return JSONResponse(result)
     if agentic and query:
         result = await _run_agent_query(query, top_k=top_k)
         result["query"] = query
@@ -380,6 +396,8 @@ async def search(
 
 @app.get("/api/similar/{patient_id}")
 async def similar(patient_id: str, top_k: int = 12) -> JSONResponse:
+    if getattr(app.state.settings, "luxir_demo", False):
+        raise HTTPException(422, "Unsupported in Luxir lexical demo: similar patients")
     patient_id = patient_id.strip()
     if not patient_id:
         return JSONResponse({"rows": [], "routing": None, "hybrid": None, "patient_id": ""})
@@ -397,6 +415,8 @@ async def facets(q: str = "", f: list[str] = Query(default=[]), route: str = "")
     histogram from the latest snapshot bodies (counts + sha provenance), not a
     tally of returned rows. Either mode degrades to the other's absence
     gracefully."""
+    if getattr(app.state.settings, "luxir_demo", False):
+        raise HTTPException(422, "Unsupported in Luxir lexical demo: facet counts / snapshots")
     if q.strip() or f:
         return await facet_counts(q=q, f=f, route=route)
     out = {}
@@ -432,6 +452,8 @@ async def facet_counts(q: str = "", f: list[str] = Query(default=[]), route: str
 
     Drill-down semantics: a field's own active filter is excluded from its own
     breakdown, so the counts show what each alternative value *would* return."""
+    if getattr(app.state.settings, "luxir_demo", False):
+        raise HTTPException(422, "Unsupported in Luxir lexical demo: facet counts / scans")
     query = q.strip()
     grouped = group_filters(f)
     namespace = app.state.settings.namespace
@@ -465,6 +487,8 @@ async def storage() -> JSONResponse:
     the how-it-works page renders the single-vector vs token-bag trade with
     current numbers instead of a stale snapshot. Cached briefly; the metadata
     read is an upstream round-trip per namespace."""
+    if getattr(app.state.settings, "luxir_demo", False):
+        raise HTTPException(422, "Unsupported in Luxir lexical demo: storage metadata")
     now = time.monotonic()
     cached = getattr(app.state, "storage_cache", None)
     if cached and now - cached[0] < 60:
@@ -496,6 +520,8 @@ async def storage() -> JSONResponse:
 
 @app.get("/api/config")
 async def config() -> JSONResponse:
+    if getattr(app.state.settings, "luxir_demo", False):
+        return JSONResponse({**luxir_demo.CONFIG, "namespace": app.state.settings.namespace, "field": "text"})
     return JSONResponse(
         {
             "namespace": app.state.settings.namespace,

@@ -223,7 +223,22 @@
     let allRows = [];
     let page = 0;
 
-    const chips = await (await fetch('/queries.json')).json();
+    const config = await apiJson('/api/config');
+    const lexicalDemo = config.profile === 'luxir_lexical_demo';
+    if (lexicalDemo) {
+      document.title = 'chart — local Luxir lexical preview';
+      document.querySelector('.lede').textContent = config.notice;
+      document.querySelector('.uses').textContent = 'Search the synthetic notes, combine scalar filters, then open a full note. All matching and ordering run in Layer and Luxir.';
+      document.querySelector('footer').textContent = 'Synthetic demonstration data. No real patients or clinical advice. Unsupported here: ' + config.unsupported.join(', ') + '.';
+      document.querySelectorAll('a[href="/help.html"]').forEach(a => a.hidden = true);
+      for (const id of ['agentic', 'li']) {
+        const control = document.getElementById(id);
+        control.disabled = true;
+        control.closest('label').querySelector('.hint').textContent = '— unavailable in this lexical demo';
+      }
+      box.placeholder = 'dyspnea · metformin · wheezing';
+    }
+    const chips = lexicalDemo ? {examples: config.examples} : await (await fetch('/queries.json')).json();
     const elChips = document.getElementById('chips');
     for (const ex of chips.examples) {
       const b = document.createElement('button');
@@ -265,7 +280,6 @@
       if (lastQuery.trim()) execute();
     });
 
-    await loadFacets();
 
     // --- Filtering ---------------------------------------------------------
 
@@ -299,7 +313,7 @@
     async function execute() {
       const q = lastQuery.trim();
       const params = filterParams();
-      if (!q && !params.length) {
+      if (!lexicalDemo && !q && !params.length) {
         stopThinking();
         results.innerHTML = '';
         inspector.style.display = 'none';
@@ -340,7 +354,7 @@
         // The Scans API showcase: count the full match set per facet, async, so the
         // ranked results never wait on the (slower) scatter/gather scan. The route
         // decides the scan selector — semantic counts a vector radius, not keywords.
-        refreshCounts(search, routing.route || routing.strategy || '');
+        if (!lexicalDemo) refreshCounts(search, routing.route || routing.strategy || '');
       } catch (err) {
         stopThinking();
         results.innerHTML = `<div class="empty">Search failed: ${escapeHtml(err.message || err)}</div>`;
@@ -498,7 +512,12 @@
       const route = routing.route || routing.strategy;
       inspector.style.display = 'block';
       const badge = document.getElementById('badge');
-      if (route) {
+      if (lexicalDemo) {
+        badge.className = 'badge browse';
+        badge.textContent = data.retrieval || 'lexical demo';
+        document.getElementById('signals').textContent = 'Layer → Luxir · no Auto routing or embedding';
+        document.getElementById('note').textContent = note;
+      } else if (route) {
         badge.className = 'badge ' + route;
         badge.textContent = route;
         document.getElementById('signals').textContent = [
@@ -582,6 +601,8 @@
       noteBtn.onclick = () => openNote(row);
       const similar = document.createElement('button');
       similar.textContent = 'Similar';
+      similar.disabled = lexicalDemo;
+      if (lexicalDemo) similar.title = 'Unavailable in lexical demo';
       similar.onclick = () => runSimilar(rowId);
       // Agentic provenance ($agent, when the Agent echoes it): which planned
       // variant first surfaced the row, and the model's graded relevance.
@@ -729,6 +750,10 @@
         <div class="nv-foot">Published, de-identified case report (PMC-Patients, CC-BY-NC-SA-4.0) —
           not raw EHR and not for clinical use.${url ? ` <a href="${escapeAttr(url)}" target="_blank" rel="noreferrer">Source report →</a>` : ''}</div>
       </div>`;
+      if (lexicalDemo) {
+        noteview.querySelector('.nv-labels h3').textContent = 'Authored fixture attributes · no classifier';
+        noteview.querySelector('.nv-foot').textContent = 'Authored synthetic note (CC0-1.0). No real patient, source report or classifier output. Not for clinical use.';
+      }
       noteview.querySelector('.nv-close').onclick = () => noteview.close();
       noteview.querySelectorAll('.etag').forEach((b) => {
         b.onclick = () => { noteview.close(); toggleFilter(b.dataset.field, b.dataset.value); };
@@ -760,6 +785,13 @@
     }
 
     function renderRail() {
+      if (lexicalDemo) {
+        rail.innerHTML = '<div class="railhead">Preset scalar filters · no counts</div>' + Object.entries(config.filters).map(([field, values]) =>
+          `<section class="facet"><h3>${escapeHtml(FIELD_LABELS[field] || field)}</h3>` + values.map(value =>
+            `<button class="fval" data-field="${escapeAttr(field)}" data-value="${escapeAttr(value)}" aria-pressed="${(activeFilters.get(field) || new Set()).has(value)}"><span class="fname">${escapeHtml(humanize(value))}</span></button>`).join('') + '</section>').join('') + '<div class="railfoot">Values are fixture presets; facet scans and counts are unavailable.</div>';
+        rail.querySelectorAll('.fval').forEach(b => { b.onclick = () => toggleFilter(b.dataset.field, b.dataset.value); });
+        return;
+      }
       if (agenticInfo) { renderAgentRail(); return; }
       // The rail must be available without a search term: the corpus snapshot is
       // its backbone, but when that load failed (or hasn't landed yet) render
@@ -841,6 +873,7 @@
     }
 
     async function loadFacets() {
+      if (lexicalDemo) { renderRail(); execute(); return; }
       if (facetLoading || facetData) return;
       facetLoading = true;
       renderRail();
@@ -895,6 +928,7 @@
     function escapeAttr(value) {
       return escapeHtml(value).replace(/`/g, '&#96;');
     }
+    await loadFacets();
   </script>
 </body>
 </html>

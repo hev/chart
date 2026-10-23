@@ -40,6 +40,8 @@ class Settings(BaseSettings):
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
 
+    luxir_demo: bool = Field(default=False, validation_alias="CHART_LUXIR_DEMO")
+
     # Gateway. The backing store is Turbopuffer (deploy/vectorstore.yaml,
     # kind=turbopuffer — the kind=search cutover was attempted but never
     # applied): the key is a Layer inbound key scoped to chart-notes, which
