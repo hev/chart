@@ -309,7 +309,7 @@ async def amain(*, once: bool = False) -> None:
     if not settings.api_key:
         raise SystemExit(
             "No gateway key. Set LAYER_GATEWAY_API_KEY in .env — it's the upstream "
-            "Turbopuffer key (1Password: layer-turbopuffer / mesh-staging)."
+            "Turbopuffer key (1Password: layer-turbopuffer / layer-factory)."
         )
     embed_settings = EmbedSettings.from_env(settings)
     layer = AsyncHevlayer(

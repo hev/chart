@@ -705,14 +705,13 @@ def test_gateway_key_resolver_handles_op_failures_without_echoing_secret() -> No
 
     assert "op item get" in script
     assert '"layer-turbopuffer"' in script
-    assert '"layer turbopuffer"' in script
-    assert script.index('"layer turbopuffer"') < script.index('"layer-turbopuffer"')
+    assert 'op_items=("layer-turbopuffer")' in script
+    assert "${CHART_GATEWAY_KEY_OP_VAULT:-layer-factory}" in script
     assert "CHART_GATEWAY_KEY_OP_ITEM" in script
     assert "CHART_GATEWAY_KEY_OP_VAULT" in script
     assert "CHART_GATEWAY_KEY_OP_FIELD" in script
     assert "CHART_GATEWAY_KEY_OP_REF" in script
-    assert '"op://mesh-staging/layer turbopuffer/credential"' in script
-    assert '"op://mesh-staging/layer-turbopuffer/credential"' in script
+    assert '"op://layer-factory/layer-turbopuffer/credential"' in script
     assert "Could not read gateway key from 1Password" in script
     assert "kill -9 \"$op_pid\"" in script
     assert "Export it first or sign in with: op signin" in script
@@ -772,7 +771,7 @@ def test_gateway_key_resolver_supports_configurable_op_ref(tmp_path) -> None:
     op.write_text(
         "#!/usr/bin/env bash\n"
         "test \"$1\" = read\n"
-        "test \"$2\" = op://mesh-staging/layer\\ turbopuffer/credential\n"
+        "test \"$2\" = op://custom-vault/custom\\ item/credential\n"
         "printf configured-key\n"
     )
     op.chmod(0o755)
@@ -781,7 +780,7 @@ def test_gateway_key_resolver_supports_configurable_op_ref(tmp_path) -> None:
         [
             "bash",
             "-c",
-            f'source "{resolver}"; CHART_GATEWAY_KEY_OP_REF="op://mesh-staging/layer turbopuffer/credential" resolve_gateway_key; test "$LAYER_GATEWAY_API_KEY" = configured-key',
+            f'source "{resolver}"; CHART_GATEWAY_KEY_OP_REF="op://custom-vault/custom item/credential" resolve_gateway_key; test "$LAYER_GATEWAY_API_KEY" = configured-key',
         ],
         cwd=tmp_path,
         env={"PATH": f"{fake_bin}:/usr/bin:/bin"},
@@ -802,9 +801,9 @@ def test_gateway_key_resolver_prefers_item_field_lookup(tmp_path) -> None:
         "#!/usr/bin/env bash\n"
         "test \"$1\" = item\n"
         "test \"$2\" = get\n"
-        "test \"$3\" = 'layer turbopuffer'\n"
+        "test \"$3\" = layer-turbopuffer\n"
         "test \"$4\" = --vault\n"
-        "test \"$5\" = mesh-staging\n"
+        "test \"$5\" = layer-factory\n"
         "test \"$6\" = --field\n"
         "test \"$7\" = credential\n"
         "test \"$8\" = --reveal\n"
@@ -835,8 +834,8 @@ def test_gateway_key_resolver_continues_after_timed_out_candidate(tmp_path) -> N
     op = fake_bin / "op"
     op.write_text(
         "#!/usr/bin/env bash\n"
-        "if [[ \"$1\" = item && \"$3\" = 'layer turbopuffer' ]]; then sleep 3; fi\n"
-        "if [[ \"$1\" = item && \"$3\" = layer-turbopuffer ]]; then printf fallback-key; exit 0; fi\n"
+        "if [[ \"$1\" = item && \"$3\" = layer-turbopuffer ]]; then sleep 3; fi\n"
+        "if [[ \"$1\" = read && \"$2\" = op://layer-factory/layer-turbopuffer/credential ]]; then printf fallback-key; exit 0; fi\n"
         "exit 1\n"
     )
     op.chmod(0o755)

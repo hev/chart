@@ -27,10 +27,9 @@ scripts/layer_cost_report.sh --kind embed --accept --out eval/out/embed-budget.j
 ```
 
 For a live slice with the gateway key resolved from `LAYER_GATEWAY_API_KEY` or
-1Password. The resolver first tries `op item get "layer turbopuffer" --vault
-mesh-staging --field credential --reveal`, then falls back to the legacy
-`layer-turbopuffer` item and the
-`op://mesh-staging/layer turbopuffer/credential` reference; override with
+1Password. The resolver first tries `op item get layer-turbopuffer --vault
+layer-factory --field credential --reveal`, then falls back to the
+`op://layer-factory/layer-turbopuffer/credential` reference; override with
 `CHART_GATEWAY_KEY_OP_ITEM`, `CHART_GATEWAY_KEY_OP_VAULT`, `CHART_GATEWAY_KEY_OP_FIELD`,
 or `CHART_GATEWAY_KEY_OP_REF` if your local item path differs.
 `scripts/plan_audit.sh --requirements` reads persisted reports without resolving

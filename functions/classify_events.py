@@ -665,7 +665,7 @@ def main() -> None:
     if not Settings().api_key:
         raise SystemExit(
             "No gateway key. Set LAYER_GATEWAY_API_KEY in .env — it's the upstream "
-            "Turbopuffer key (1Password: layer-turbopuffer / mesh-staging)."
+            "Turbopuffer key (1Password: layer-turbopuffer / layer-factory)."
         )
     once = args.once or os.environ.get("CHART_UDF_ONCE", "").strip().lower() in {"1", "true", "yes"}
     if args.per_item or os.environ.get("CHART_UDF_PER_ITEM", "").strip().lower() in {"1", "true", "yes"}:
