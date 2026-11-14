@@ -27,20 +27,17 @@ resolve_gateway_key() {
     op_error="$(mktemp)"
     op_output="$(mktemp)"
     timeout_seconds="${CHART_OP_TIMEOUT_SECONDS:-15}"
-    op_vault="${CHART_GATEWAY_KEY_OP_VAULT:-mesh-staging}"
+    op_vault="${CHART_GATEWAY_KEY_OP_VAULT:-layer-factory}"
     op_field="${CHART_GATEWAY_KEY_OP_FIELD:-credential}"
     if [[ -n "${CHART_GATEWAY_KEY_OP_ITEM:-}" ]]; then
       op_items=("$CHART_GATEWAY_KEY_OP_ITEM")
     else
-      op_items=("layer turbopuffer" "layer-turbopuffer")
+      op_items=("layer-turbopuffer")
     fi
     if [[ -n "${CHART_GATEWAY_KEY_OP_REF:-}" ]]; then
       op_refs=("$CHART_GATEWAY_KEY_OP_REF")
     else
-      op_refs=(
-        "op://mesh-staging/layer turbopuffer/credential"
-        "op://mesh-staging/layer-turbopuffer/credential"
-      )
+      op_refs=("op://layer-factory/layer-turbopuffer/credential")
     fi
     if command -v python3 >/dev/null 2>&1; then
       if python3 - "$timeout_seconds" "$op_output" "$op_error" "$op_vault" "$op_field" "${op_items[@]}" -- "${op_refs[@]}" <<'PY'

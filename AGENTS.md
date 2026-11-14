@@ -37,7 +37,7 @@ source scripts/lib/resolve_gateway_key.sh && resolve_gateway_key >/dev/null
 uv run --extra search uvicorn search.app:app --reload   # http://localhost:8000
 ```
 
-The gateway key comes from 1Password (`op://mesh-staging/layer-turbopuffer/credential`)
+The gateway key comes from 1Password (`op://layer-factory/layer-turbopuffer/credential`)
 at run time. Never write it to a `.env` file or print it.
 
 ## Deploy
